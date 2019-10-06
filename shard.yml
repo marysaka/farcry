@@ -1,0 +1,13 @@
+name: farcry
+version: 0.1.0
+
+authors:
+  - Thomas Guillemard <me@thog.eu>
+
+targets:
+  farcry:
+    main: src/farcry.cr
+
+crystal: 0.31.1
+
+license: MIT

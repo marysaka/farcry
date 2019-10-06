@@ -1,0 +1,11 @@
+/build/
+/isofiles/boot/farcry
+/docs/
+/lib/
+/bin/
+/.shards/
+*.dwarf
+*.elf
+*.o
+*.iso
+*.ll
