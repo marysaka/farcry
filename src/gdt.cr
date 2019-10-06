@@ -1,6 +1,6 @@
 
 
-module GDT
+struct GDT
     struct Entry
         SIZE = sizeof(Entry)
 
@@ -52,22 +52,16 @@ module GDT
             Serial.put_number(@raw_value, 16);
             Serial.puts " }\n"
         end
-
-        def dump_granuality
-            Serial.puts "GDT::Entry::Granuality { 0x"
-            Serial.put_number((@raw_value >> 48) & 0xF0, 16);
-            Serial.puts " }\n"
-        end
     end
 
-    ENTRIES_COUNT = 5
-
-    @@table = uninitialized UInt64[ENTRIES_COUNT]
+    ENTRIES_COUNT = 7
 
     # This is actually a UInt48 but this is fine (tm)
-    @@ptr_value = uninitialized UInt64
+    @ptr_value = uninitialized UInt64
 
-    def self.create_entry(base_address : UInt32, limit : UInt32, privilege_level : UInt64, is_code : Bool): UInt64
+    @table = uninitialized UInt64[ENTRIES_COUNT]
+
+    def create_entry(base_address : UInt32, limit : UInt32, privilege_level : UInt64, is_code : Bool): UInt64
         res = Entry.new
         res.base_address = base_address.to_u64
         res.limit = limit.to_u64
@@ -81,34 +75,40 @@ module GDT
         res.set_present
         res.set_read_write_or_read_execute
 
-        res.dump
-        res.dump_granuality
-
         res.to_raw
     end
 
-    def self.setup_gdt
+    def setup_gdt
         # NULL segment
-        @@table[0] = 0
+        @table[0] = 0
 
         # Kernel Code segment
-        @@table[1] = create_entry(0, 0xFFFFFFFF, 0, true)
+        @table[1] = create_entry(0, 0xFFFFFFFF, 0, true)
 
         # Kernel Data segment
-        @@table[2] = create_entry(0, 0xFFFFFFFF, 0, false)
+        @table[2] = create_entry(0, 0xFFFFFFFF, 0, false)
+
+        # Kernel Stack segment
+        @table[3] = create_entry(0, 0xFFFFFFFF, 0, false)
 
         # Userland Code segment
-        @@table[3] = create_entry(0, 0xFFFFFFFF, 3, true)
+        @table[4] = create_entry(0, 0xFFFFFFFF, 3, true)
 
         # Userland Data segment
-        @@table[4] = create_entry(0, 0xFFFFFFFF, 3, false)
+        @table[5] = create_entry(0, 0xFFFFFFFF, 3, false)
+
+        # Userland Stack segment
+        @table[6] = create_entry(0, 0xFFFFFFFF, 3, false)
 
 
-        @@ptr_value = pointerof(@@table).address << 16 | (ENTRIES_COUNT * Entry::SIZE - 1)
+        @ptr_value = pointerof(@table).address << 16 | (ENTRIES_COUNT * Entry::SIZE - 1)
+        Serial.puts "@@ptr_value address { 0x"
+        Serial.put_number(pointerof(@ptr_value).address, 16);
+        Serial.puts " }\n"
     end
 
-    def self.flush
-        asm("lgdt ($0)" :: "r" (pointerof(@@ptr_value)) : "memory");
+    def flush
+        asm("lgdt ($0)" :: "r" (pointerof(@ptr_value)) : "memory");
 
         asm("
             // Reload CS through far jmp

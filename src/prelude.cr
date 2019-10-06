@@ -14,13 +14,22 @@ fun __crystal_once_init : Void*
 end
 
 fun __crystal_raise_overflow : NoReturn
-    Serial.puts "OVERFLOW??????"
+    Serial.puts "OVERFLOW??????\n"
+    while true
+    end
+end
+
+def raise(message : String) : NoReturn
+    Serial.puts "Raised: "
+    Serial.puts message
+    Serial.puts "\n"
+
     while true
     end
 end
 
 fun abort : NoReturn
-    Serial.puts "Aborted"
+    Serial.puts "Aborted\n"
     while true
     end
 end

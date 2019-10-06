@@ -3,6 +3,7 @@ require "./gdt"
 Serial.puts "Welcome to FarCry\n"
 
 Serial.puts "Setup GDT\n"
-GDT.setup_gdt
-GDT.flush
+gdt = Pointer(GDT).new 0x800
+gdt.value.setup_gdt
+gdt.value.flush
 Serial.puts "GDT Setup done\n"

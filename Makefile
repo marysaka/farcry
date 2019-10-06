@@ -42,14 +42,14 @@ LINK_SCRIPT = link.T
 
 # For compiler-rt, we need some system header
 SYS_INCLUDES := -isystem $(realpath $(SOURCE_ROOT))/include/
-CC_FLAGS := -g -fuse-ld=lld -nostdlib -nostdlibinc -nostartfiles $(SYS_INCLUDES) -Wno-unused-command-line-argument
+CC_FLAGS := -g -fno-builtin -fno-stack-protector -fno-rtti -nostdlib -nodefaultlibs -nostdlibinc $(SYS_INCLUDES)
 CXX_FLAGS := $(CC_FLAGS) -std=c++17 -stdlib=libc++ -nodefaultlibs -nostdinc++
 AR_FLAGS := rcs
 AS_FLAGS := -g -arch=i386 -triple $(TARGET_TRIPLET)
 
 LD_FLAGS :=	--eh-frame-hdr \
 	--no-undefined \
-	-T link.T \
+	-T $(LINK_SCRIPT) \
 
 # for compatiblity
 CFLAGS := $(CC_FLAGS)
@@ -95,7 +95,7 @@ $(BUILD_DIR)/$(NAME).elf: $(OBJECTS)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
 	mkdir -p $(@D)
 	rm -f $@
-	$(CC) $(CC_FLAGS) -target $(TARGET_TRIPLET) -c -o $@ $< $(LINK_SCRIPT)
+	$(CC) $(CC_FLAGS) -target $(TARGET_TRIPLET) -c -o $@ $<
 
 clean: clean_compiler-rt
 	rm -rf $(OBJECTS) main.ll $(BUILD_DIR)/$(NAME).elf docs
