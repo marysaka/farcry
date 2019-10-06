@@ -42,7 +42,7 @@ LINK_SCRIPT = link.T
 
 # For compiler-rt, we need some system header
 SYS_INCLUDES := -isystem $(realpath $(SOURCE_ROOT))/include/
-CC_FLAGS := -g -fexceptions -fuse-ld=lld -nostdlib -nostdlibinc -nostartfiles $(SYS_INCLUDES) -Wno-unused-command-line-argument
+CC_FLAGS := -g -fuse-ld=lld -nostdlib -nostdlibinc -nostartfiles $(SYS_INCLUDES) -Wno-unused-command-line-argument
 CXX_FLAGS := $(CC_FLAGS) -std=c++17 -stdlib=libc++ -nodefaultlibs -nostdinc++
 AR_FLAGS := rcs
 AS_FLAGS := -g -arch=i386 -triple $(TARGET_TRIPLET)
@@ -78,7 +78,7 @@ NAME = farcry
 all: $(NAME).iso #docs
 
 # start compiler-rt definitions
-LIB_COMPILER_RT_BUILTINS := $(BUILD_DIR)/compiler-rt/lib/libclang_rt.builtins-aarch64.a
+LIB_COMPILER_RT_BUILTINS := $(BUILD_DIR)/compiler-rt/lib/libclang_rt.builtins-i386.a
 include mk/compiler-rt.mk
 # end compiler-rt definitions
 

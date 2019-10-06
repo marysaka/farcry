@@ -19,6 +19,12 @@ fun __crystal_raise_overflow : NoReturn
     end
 end
 
+fun abort : NoReturn
+    Serial.puts "Aborted"
+    while true
+    end
+end
+
 fun __crystal_once(state : Void*, flag : Bool*, initializer : Void*)
     unless flag.value
         Proc(Nil).new(initializer, Pointer(Void).new 0).call
@@ -68,6 +74,11 @@ fun __farcry_real_entrypoint(multiboot2_magic: UInt32, multboot2_address: Void*)
     Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
 
     Serial.puts("Hello World\n")
+
+    ints = uninitialized Int32[3]
+    ints[0] = 0
+    ints[1] = 8
+    ints[2] = 15
 
     LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
 

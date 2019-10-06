@@ -1,6 +1,8 @@
-# TODO: Write documentation for `Farcry`
-module Farcry
-  VERSION = "0.1.0"
+require "./gdt"
 
-  # TODO: Put your code here
-end
+Serial.puts "Welcome to FarCry\n"
+
+Serial.puts "Setup GDT\n"
+GDT.setup_gdt
+GDT.flush
+Serial.puts "GDT Setup done\n"
