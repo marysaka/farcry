@@ -23,3 +23,12 @@ start_multiboot_header:
     # size
     .long 8
 end_multiboot_header:
+
+.section .data
+.global __farcry_early_stack_bottom
+.global __farcry_early_stack_top
+__farcry_early_stack_bottom:
+.rept 16384
+.short 0
+.endr
+__farcry_early_stack_top:

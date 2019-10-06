@@ -58,7 +58,7 @@ CXXFLAGS := $(CXX_FLAGS)
 # Crystal
 CRYSTAL = crystal
 SHARDS = shards
-CRFLAGS = --cross-compile --no-debug --prelude=./prelude --target="$(TARGET_TRIPLET)" --error-trace --emit llvm-ir
+CRFLAGS = --cross-compile --prelude=./prelude --target="$(TARGET_TRIPLET)" --error-trace --emit llvm-ir
 SOURCES := $(shell find src lib -type f -name '*.cr')
 
 # export
@@ -111,7 +111,10 @@ $(NAME).iso: $(BUILD_DIR)/$(NAME).elf
 	cp  $(BUILD_DIR)/$(NAME).elf isofiles/boot/farcry
 	mkisofs-rs external/grub/isofiles isofiles -o $(NAME).iso -b boot/grub/i386-pc/eltorito.img --no-emul-boot --boot-info-table --embedded-boot external/grub/embedded.img
 
+qemu-debug: $(NAME).iso
+	qemu-system-i386 -d cpu_reset -d int -serial stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT} -s -S
+
 qemu: $(NAME).iso
-	qemu-system-i386 -d cpu_reset -serial stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT}
+	qemu-system-i386 -serial stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT}
 
 .PHONY: lib
