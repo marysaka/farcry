@@ -6,45 +6,45 @@ require "./i386_utils"
 require "./serial"
 
 lib Crt0
-    fun __farcry_early_stack_top: UInt16
+  fun __farcry_early_stack_top : UInt16
 end
 
 fun __crystal_once_init : Void*
-    Pointer(Void).new 0
+  Pointer(Void).new 0
 end
 
 fun __crystal_raise_overflow : NoReturn
-    Serial.puts "OVERFLOW??????\n"
-    while true
-    end
+  Serial.puts "OVERFLOW??????\n"
+  while true
+  end
 end
 
 def raise(message : String) : NoReturn
-    Serial.puts "Raised: "
-    Serial.puts message
-    Serial.puts "\n"
+  Serial.puts "Raised: "
+  Serial.puts message
+  Serial.puts "\n"
 
-    while true
-    end
+  while true
+  end
 end
 
 fun abort : NoReturn
-    Serial.puts "Aborted\n"
-    while true
-    end
+  Serial.puts "Aborted\n"
+  while true
+  end
 end
 
 fun __crystal_once(state : Void*, flag : Bool*, initializer : Void*)
-    unless flag.value
-        Proc(Nil).new(initializer, Pointer(Void).new 0).call
-        flag.value = true
-    end
+  unless flag.value
+    Proc(Nil).new(initializer, Pointer(Void).new 0).call
+    flag.value = true
+  end
 end
 
 # GRUB entrypoint
 fun __farcry_entrypoint
-    #test = Atomic(UInt32).new 5
-    asm("
+  # test = Atomic(UInt32).new 5
+  asm("
         # Because it's anoying without this
         .intel_syntax noprefix
 
@@ -60,16 +60,15 @@ fun __farcry_entrypoint
 
         # if we return here, we halt the CPU.
         hlt
-    "
-    )
+    ")
 end
 
 module Multiboot2
-    @@info_address: UInt64 = 0
+  @@info_address : UInt64 = 0
 
-    def self.init_from_arguments(multiboot2_magic, multboot2_address)
-        @@info_address = multboot2_address.address
-    end
+  def self.init_from_arguments(multiboot2_magic, multboot2_address)
+    @@info_address = multboot2_address.address
+  end
 end
 
 lib LibCrystalMain
@@ -78,20 +77,20 @@ lib LibCrystalMain
 end
 
 # Farcry real entrypoint
-fun __farcry_real_entrypoint(multiboot2_magic: UInt32, multboot2_address: Void*) : NoReturn
-    Serial.initialize(Serial::COM1)
-    Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
+fun __farcry_real_entrypoint(multiboot2_magic : UInt32, multboot2_address : Void*) : NoReturn
+  Serial.initialize(Serial::COM1)
+  Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
 
-    Serial.puts("Hello World\n")
+  Serial.puts("Hello World\n")
 
-    ints = uninitialized Int32[3]
-    ints[0] = 0
-    ints[1] = 8
-    ints[2] = 15
+  ints = uninitialized Int32[3]
+  ints[0] = 0
+  ints[1] = 8
+  ints[2] = 15
 
-    LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
+  LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
 
-    # Never return
-    while true
-    end
+  # Never return
+  while true
+  end
 end
