@@ -1,9 +1,9 @@
 require "./gdt"
 
-Serial.puts "Welcome to FarCry\n"
+Logger.info "Welcome to FarCry"
 
-Serial.puts "Setup GDT\n"
+Logger.debug "Setup GDT"
 gdt = Pointer(GDT).new 0x800
 gdt.value.setup_gdt
 gdt.value.flush
-Serial.puts "GDT Setup done\n"
+Logger.debug "GDT Setup done"

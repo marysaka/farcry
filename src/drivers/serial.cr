@@ -6,10 +6,25 @@ module Serial
 
   def self.initialize(port : UInt16)
     @@port = port
+
+    # Disable all interrupts
+    outb(port + 1, 0x00)
+    # Enable DLAB (set baud rate divisor)
+    outb(port + 3, 0x80)
+    # Set divisor to 3 (lo byte)
+    outb(port, 0x03)
+    # Set divisor to 3 (hi byte)
+    outb(port + 1, 0x00)
+    # 8 bits, no parity, one stop bit
+    outb(port + 3, 0x03)
+    # Enable FIFO, clear them, with 14-byte threshold
+    outb(port + 2, 0xC7)
+    # IRQs enabled, RTS/DSR set
+    outb(port + 4, 0x0B)
   end
 
   def self.transport_empty? : Bool
-    false
+    (inb(@@port + 5) & 0x20) != 0
   end
 
   def self.received_data? : Bool

@@ -44,12 +44,6 @@ struct GDT
     def to_raw
       @raw_value
     end
-
-    def dump
-      Serial.puts "GDT::Entry { 0x"
-      Serial.put_number(@raw_value, 16)
-      Serial.puts " }\n"
-    end
   end
 
   ENTRIES_COUNT = 7
@@ -99,9 +93,6 @@ struct GDT
     @table[6] = create_entry(0, 0xFFFFFFFF, 3, false)
 
     @ptr_value = pointerof(@table).address << 16 | (ENTRIES_COUNT * Entry::SIZE - 1)
-    Serial.puts "@@ptr_value address { 0x"
-    Serial.put_number(pointerof(@ptr_value).address, 16)
-    Serial.puts " }\n"
   end
 
   def flush

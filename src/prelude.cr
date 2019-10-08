@@ -1,9 +1,15 @@
 require "primitives"
 require "atomic"
-require "proc"
+require "struct"
 require "./internal/external_types"
+require "./internal/utils"
+require "value"
+require "nil"
+require "comparable"
+require "enum"
+require "proc"
 require "./i386_utils"
-require "./serial"
+require "./logger"
 
 lib Crt0
   fun __farcry_early_stack_top : UInt16
@@ -14,24 +20,13 @@ fun __crystal_once_init : Void*
 end
 
 fun __crystal_raise_overflow : NoReturn
-  Serial.puts "OVERFLOW??????\n"
-  while true
-  end
+  raise "overflow exception"
 end
 
 def raise(message : String) : NoReturn
-  Serial.puts "Raised: "
-  Serial.puts message
-  Serial.puts "\n"
-
-  while true
-  end
-end
-
-fun abort : NoReturn
-  Serial.puts "Aborted\n"
-  while true
-  end
+  Logger.error "Crystal exception raised:"
+  Logger.error message
+  abort
 end
 
 fun __crystal_once(state : Void*, flag : Bool*, initializer : Void*)
@@ -78,16 +73,9 @@ end
 
 # Farcry real entrypoint
 fun __farcry_real_entrypoint(multiboot2_magic : UInt32, multboot2_address : Void*) : NoReturn
-  Serial.initialize(Serial::COM1)
+  Logger.initialize(Logger::Type::Serial)
+
   Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
-
-  Serial.puts("Hello World\n")
-
-  ints = uninitialized Int32[3]
-  ints[0] = 0
-  ints[1] = 8
-  ints[2] = 15
-
   LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
 
   # Never return
