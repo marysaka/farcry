@@ -1,4 +1,5 @@
 require "./drivers/serial"
+require "./drivers/vga_text_mode"
 
 module Logger
   enum Type
@@ -21,6 +22,8 @@ module Logger
     case type
     when Type::Serial
       Serial.initialize(Serial::COM1)
+    when Type::Screen
+      VgaTextMode.initialize
     else
       Serial.puts "logger setup as None."
     end
@@ -61,7 +64,10 @@ module Logger
     case @@type
     when Type::Serial
       Serial.puts str
+    when Type::Screen
+      VgaTextMode.puts str
     else
+      # No operations
     end
   end
 
