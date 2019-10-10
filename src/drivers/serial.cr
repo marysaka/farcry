@@ -67,4 +67,46 @@ module Serial
       raw_puts(ptr, count.to_u64)
     end
   end
+
+  private def self.get_ansi_color(color : Logger::Color) : Int32
+    case color
+    when Logger::Color::Black
+      30
+    when Logger::Color::Blue
+      34
+    when Logger::Color::Green
+      32
+    when Logger::Color::Cyan
+      36
+    when Logger::Color::Red
+      31
+    when Logger::Color::Magenta
+      95
+    when Logger::Color::Gray
+      37
+    when Logger::Color::DarkGray
+      90
+    when Logger::Color::BrightBlue
+      94
+    when Logger::Color::BrightGreen
+      92
+    when Logger::Color::BrightCyan
+      96
+    when Logger::Color::BrightRed
+      91
+    when Logger::Color::BrightMagenta
+      95
+    when Logger::Color::Yellow
+      33
+    else
+      # default is white
+      97
+    end
+  end
+
+  def self.set_color(color : Logger::Color)
+    puts "\x1b["
+    put_number get_ansi_color(color), 10
+    puts "m"
+  end
 end

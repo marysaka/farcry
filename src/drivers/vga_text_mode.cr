@@ -6,8 +6,13 @@ module VgaTextMode
   @@vga_text_ptr = Pointer(UInt16).new 0xB8000
   @@pos_x = 0
   @@pos_y = 0
+  @@color = Logger::Color::White
 
   def self.initialize
+  end
+
+  def self.set_color(color : Logger::Color)
+    @@color = color
   end
 
   def self.putc(c : UInt8)
@@ -15,7 +20,7 @@ module VgaTextMode
       @@pos_x = 0
       @@pos_y += 1
     else
-      @@vga_text_ptr[@@pos_y * WIDTH + @@pos_x] = c.to_u16 | 0xF00
+      @@vga_text_ptr[@@pos_y * WIDTH + @@pos_x] = c.to_u16 | @@color.to_u16 << 8
       @@pos_x += 1
       if @@pos_x == WIDTH
         @@pos_x = 0

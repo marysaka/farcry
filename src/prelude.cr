@@ -9,7 +9,7 @@ require "comparable"
 require "enum"
 require "proc"
 require "./i386_utils"
-require "./logger"
+require "./logger/impl"
 
 lib Crt0
   fun __farcry_early_stack_top : UInt16
@@ -73,7 +73,7 @@ end
 
 # Farcry real entrypoint
 fun __farcry_real_entrypoint(multiboot2_magic : UInt32, multboot2_address : Void*) : NoReturn
-  Logger.initialize(Logger::Type::Screen)
+  Logger.initialize(Logger::Type::Serial)
 
   Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
   LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
