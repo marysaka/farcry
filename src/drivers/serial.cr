@@ -62,8 +62,14 @@ module Serial
     end
   end
 
-  def self.put_number(value : Int, base)
+  def self.put_number(value : Int, base, padding = 0)
     value.internal_to_s(base, false) do |ptr, count|
+      tmp_count = count
+      while padding > tmp_count
+        puts "0"
+        tmp_count += 1
+      end
+
       raw_puts(ptr, count.to_u64)
     end
   end

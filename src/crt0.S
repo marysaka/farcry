@@ -27,6 +27,7 @@ end_multiboot_header:
 .section .data
 .global __farcry_early_stack_bottom
 .global __farcry_early_stack_top
+.align 8
 __farcry_early_stack_bottom:
 .rept 16384
 .short 0
