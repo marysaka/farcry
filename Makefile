@@ -86,7 +86,6 @@ OBJECTS = $(LIB_COMPILER_RT_BUILTINS) $(BUILD_DIR)/$(NAME).o $(BUILD_DIR)/crt0.o
 
 $(BUILD_DIR)/$(NAME).o: lib $(SOURCES)
 	mkdir -p $(@D)
-	rm -f $@
 	$(CRYSTAL) build src/main.cr -o $(BUILD_DIR)/$(NAME) $(CRFLAGS)
 
 $(BUILD_DIR)/$(NAME).elf: $(OBJECTS)
@@ -94,7 +93,6 @@ $(BUILD_DIR)/$(NAME).elf: $(OBJECTS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
 	mkdir -p $(@D)
-	rm -f $@
 	$(CC) $(CC_FLAGS) -target $(TARGET_TRIPLET) -c -o $@ $<
 
 clean: clean_compiler-rt
@@ -105,10 +103,11 @@ docs: $(SOURCES)
 
 lib: shard.yml
 	$(SHARDS) install
-	touch lib
 
-$(NAME).iso: $(BUILD_DIR)/$(NAME).elf
-	cp  $(BUILD_DIR)/$(NAME).elf isofiles/boot/farcry
+isofiles/boot/$(NAME): $(BUILD_DIR)/$(NAME).elf
+	cp  $(BUILD_DIR)/$(NAME).elf isofiles/boot/$(NAME)
+
+$(NAME).iso: isofiles/boot/$(NAME)
 	mkisofs-rs external/grub/isofiles isofiles -o $(NAME).iso -b boot/grub/i386-pc/eltorito.img --no-emul-boot --boot-info-table --embedded-boot external/grub/embedded.img
 
 qemu-debug: $(NAME).iso
@@ -117,4 +116,4 @@ qemu-debug: $(NAME).iso
 qemu: $(NAME).iso
 	qemu-system-i386 -serial stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT}
 
-.PHONY: lib
+.PHONY: clean all
