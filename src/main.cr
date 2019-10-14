@@ -25,5 +25,5 @@ Logger.debug "Stack size: 0x", false
 Logger.put_number stack_size, 16
 Logger.puts "\n"
 
-Logger.info "Now showing the stackdump"
-Logger.print_hex stack_bottom, stack_size
+#Logger.info "Now showing the stackdump"
+#Logger.print_hex stack_bottom, stack_size
