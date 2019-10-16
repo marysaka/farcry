@@ -1,0 +1,26 @@
+name: Farcry CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+    
+    container:
+      image: crystallang/crystal
+    
+    steps:
+      - name: Install LLVM 9
+        run: wget https://apt.llvm.org/llvm.sh \
+             chmod +x llvm.sh                  \
+             sudo ./llvm.sh 9
+
+      - uses: actions/checkout@master
+        name: Checkout
+        with:
+          submodules: recursive
+
+      - name: Build
+        run: LLVM_POSTFIX=-9 make
+
