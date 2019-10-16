@@ -15,8 +15,7 @@ jobs:
         run:
              apt-get install -y wget              \
              wget https://apt.llvm.org/llvm.sh    \
-             chmod +x llvm.sh                     \
-             sudo ./llvm.sh 9
+             chmod +x llvm.sh && sudo ./llvm.sh 9
 
       - uses: actions/checkout@master
         name: Checkout
