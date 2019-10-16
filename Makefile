@@ -96,7 +96,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
 	$(CC) $(CC_FLAGS) -target $(TARGET_TRIPLET) -c -o $@ $<
 
 clean: clean_compiler-rt
-	rm -rf $(OBJECTS) main.ll $(BUILD_DIR)/$(NAME).elf docs
+	rm -rf $(OBJECTS) main.ll $(BUILD_DIR)/$(NAME).elf docs isofiles/boot/farcry $(NAME).iso
 
 docs: $(SOURCES)
 	$(CRYSTAL) docs src/main_docs.cr
