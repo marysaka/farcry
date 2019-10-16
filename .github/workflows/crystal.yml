@@ -12,8 +12,8 @@ jobs:
     
     steps:
       - name: Install LLVM 9
-        run: wget https://apt.llvm.org/llvm.sh \
-             chmod +x llvm.sh                  \
+        run: curl -O https://apt.llvm.org/llvm.sh \
+             chmod +x llvm.sh                     \
              sudo ./llvm.sh 9
 
       - uses: actions/checkout@master
