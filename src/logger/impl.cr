@@ -117,7 +117,7 @@ module Logger
 
       # line_content is full and ready to be printed
       if last_content_index > content_index
-        put_number pointer.address + i, 16, 8
+        put_number display_address + i, 16, 8
         puts ": "
 
         line_content.size.times do |i|
@@ -137,7 +137,7 @@ module Logger
 
     # If the loop ended while not printing the last line, make sure to do so
     if last_content_index != line_content.size - 1
-      put_number pointer.address + (size & (0 - line_content.size)).to_u64, 16, 8
+      put_number display_address + (size & (0 - line_content.size)).to_u64, 16, 8
       puts ": "
 
       line_content.size.times do |i|

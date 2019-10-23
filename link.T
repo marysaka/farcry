@@ -11,6 +11,7 @@ PHDRS
 
 SECTIONS {
     . = 0;
+    KERNEL_START = .;
 
     .boot ALIGN(4K) : {
         KEEP(*(.multiboot_header))
@@ -45,7 +46,8 @@ SECTIONS {
         . = ALIGN(4K);
     } : data
 
-
+    . = ALIGN(4K);
+    KERNEL_END = .;
 
     /* Stabs debugging sections.  */
     .stab          0 : { *(.stab) }

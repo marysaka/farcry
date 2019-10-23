@@ -1,4 +1,5 @@
-require "./gdt"
+require "./arch/gdt"
+require "./arch/memory/physical_allocator"
 
 Logger.info "Welcome to FarCry"
 
@@ -25,5 +26,22 @@ Logger.debug "Stack size: 0x", false
 Logger.put_number stack_size, 16
 Logger.puts "\n"
 
-#Logger.info "Now showing the stackdump"
-#Logger.print_hex stack_bottom, stack_size
+# Logger.info "Now showing the stackdump"
+# Logger.print_hex stack_bottom, stack_size
+
+Memory::PhysicalAllocator.initialize
+allocation_result = Memory::PhysicalAllocator.allocate_page 0x1000
+
+case allocation_result
+when Pointer(Void)
+  Logger.info "Allocated a physical page at 0x", false
+  Logger.put_number allocation_result.address, 16
+  Logger.puts "\n"
+else
+  Logger.error "Cannot allocate: ", false
+  Logger.put_number allocation_result.to_u32, 16
+  Logger.puts "\n"
+  Memory::PhysicalAllocator.dump
+end
+
+Logger.info "Job done"

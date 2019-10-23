@@ -54,6 +54,11 @@ module VgaTextMode
   def self.put_number(value : Int, base, padding = 0)
     value.internal_to_s(base, false) do |ptr, count|
       tmp_count = count
+
+      if count == 0 && padding == 0
+        padding = 1
+      end
+
       while padding > tmp_count
         puts "0"
         tmp_count += 1

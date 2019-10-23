@@ -1444,6 +1444,22 @@ struct Int
     (self & mask) == mask
   end
 
+  # Returns `self` modulo *other*.
+  #
+  # This uses floored division.
+  #
+  # See `Int#/` for more details.
+  def %(other : Int)
+    if other == 0
+      abort()
+    elsif (self ^ other) >= 0
+      self.unsafe_mod(other)
+    else
+      me = self.unsafe_mod(other)
+      me == 0 ? me : me + other
+    end
+  end
+
   def remainder(other : Int)
     if other == 0
       abort()

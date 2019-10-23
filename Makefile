@@ -58,7 +58,7 @@ CXXFLAGS := $(CXX_FLAGS)
 # Crystal
 CRYSTAL = crystal
 SHARDS = shards
-CRFLAGS = --cross-compile --prelude=./prelude --target="$(TARGET_TRIPLET)" --error-trace --emit llvm-ir
+CRFLAGS = --stats --cross-compile --prelude=./prelude --target="$(TARGET_TRIPLET)" --error-trace --emit llvm-ir
 SOURCES := $(shell find src lib -type f -name '*.cr')
 
 # export

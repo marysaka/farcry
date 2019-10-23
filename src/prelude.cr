@@ -73,12 +73,13 @@ end
 
 # Farcry real entrypoint
 fun __farcry_real_entrypoint(multiboot2_magic : UInt32, multboot2_address : Void*) : NoReturn
-  Logger.initialize(Logger::Type::Screen)
+  Logger.initialize(Logger::Type::Serial)
 
   Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
   LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)
 
   # Never return
   while true
+    asm("hlt")
   end
 end

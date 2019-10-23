@@ -1,5 +1,5 @@
 # compiler-rt needs some bare minimal to be linkable (memcmp, memcpy, abort, and assert)
-fun memcmp(s1 : UInt8*, s2 : UInt8*, n : UInt64) : Int32
+fun memcmp(s1 : UInt8*, s2 : UInt8*, n : UInt32) : Int32
   until n == 0
     if s1.value != s2.value
       return (s1.value.to_i32 - s2.value.to_i32)
@@ -9,21 +9,21 @@ fun memcmp(s1 : UInt8*, s2 : UInt8*, n : UInt64) : Int32
   0_i32
 end
 
-fun memcpy(dest : UInt8*, src : UInt8*, n : UInt64)
+fun memcpy(dest : UInt8*, src : UInt8*, n : UInt32)
   n.times do |i|
     dest[i] = src[i]
   end
 end
 
-fun memset(s : UInt8*, c : Int32, n : UInt64) : UInt8*
+fun memset(s : UInt8*, c : Int32, n : UInt32) : UInt8*
   n.times do |i|
     s[i] = c.to_u8
   end
   s
 end
 
-def __strlen(str) : UInt64
-  res = 0_u64
+def __strlen(str) : UInt32
+  res = 0_u32
   until str[res] == 0
     res += 1
   end
@@ -33,7 +33,13 @@ end
 fun abort : NoReturn
   Logger.error "Aborted"
   while true
+    asm("hlt")
   end
+end
+
+def panic(panic_message : String)
+  Logger.error panic_message
+  abort
 end
 
 # see include/assert.h
