@@ -44,9 +44,9 @@ end
 
 # see include/assert.h
 fun __assert(msg : UInt8*, file : UInt8*, line : UInt32)
-  Serial.raw_puts(msg, __strlen(msg))
-  Serial.raw_puts(file, __strlen(file))
-  Serial.puts "Line: "
-  Serial.put_number(line, 10)
+  Logger.serial_logger.raw_puts(msg, __strlen(msg))
+  Logger.serial_logger.raw_puts(file, __strlen(file))
+  Logger.serial_logger.puts "Line: "
+  Logger.serial_logger.put_number(line, 10)
   abort
 end

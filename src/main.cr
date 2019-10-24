@@ -1,6 +1,7 @@
 require "./arch/gdt"
 require "./arch/memory/physical_allocator"
 
+Logger.initialize(Logger::Type::All)
 Logger.info "Welcome to FarCry"
 
 Logger.debug "Setup GDT"
@@ -26,11 +27,11 @@ Logger.debug "Stack size: 0x", false
 Logger.put_number stack_size, 16
 Logger.puts "\n"
 
-# Logger.info "Now showing the stackdump"
-# Logger.print_hex stack_bottom, stack_size
+Logger.info "Now showing the stackdump"
+Logger.print_hex stack_bottom, stack_size
 
 Memory::PhysicalAllocator.initialize
-allocation_result = Memory::PhysicalAllocator.allocate_page 0x1000
+allocation_result = Memory::PhysicalAllocator.allocate_pages 0x1000
 
 case allocation_result
 when Pointer(Void)

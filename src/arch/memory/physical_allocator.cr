@@ -8,8 +8,7 @@ module Memory::PhysicalAllocator
     InvalidAddress
     InvalidSize
     OutOfMemory
-    AlreadyAllocated
-    AlreadyFreed
+    StateMismatch
   end
 
   PAGE_SIZE           = 0x1000
@@ -29,7 +28,7 @@ module Memory::PhysicalAllocator
     Logger.put_number kernel_end, 16
     Logger.puts "]\n"
 
-    reserve_result = reserve(kernel_start, kernel_end - kernel_start)
+    reserve_result = set_page_range_state(kernel_start, kernel_end - kernel_start, true)
 
     # Test
     case reserve_result
@@ -68,7 +67,7 @@ module Memory::PhysicalAllocator
     false
   end
 
-  def self.reserve(address : UInt32, size : UInt32) : Pointer(Void) | Error
+  def self.set_page_range_state(address : UInt32, size : UInt32, is_used : Bool) : Pointer(Void) | Error
     if address % PAGE_SIZE != 0
       return Error::InvalidAddress
     end
@@ -77,8 +76,8 @@ module Memory::PhysicalAllocator
       return Error::InvalidSize
     end
 
-    if is_reserved_range(address, size)
-      return Error::AlreadyAllocated
+    if is_reserved_range(address, size) == is_used
+      return Error::StateMismatch
     end
 
     base_page_index = address >> 12
@@ -92,13 +91,17 @@ module Memory::PhysicalAllocator
       map_index = tmp / (BITMAP_ELEMENT_SIZE * 8)
       bit_index = tmp % (BITMAP_ELEMENT_SIZE * 8)
 
-      @@bit_map[map_index] |= 1 << bit_index
+      if is_used
+        @@bit_map[map_index] |= 1 << bit_index
+      else
+        @@bit_map[map_index] &= ~(1 << bit_index)
+      end
     end
 
     Pointer(Void).new address.to_u64
   end
 
-  def self.allocate_page(size : UInt32) : Pointer(Void) | Error
+  def self.allocate_pages(size : UInt32) : Pointer(Void) | Error
     if size % PAGE_SIZE != 0
       return Error::InvalidSize
     end
@@ -133,9 +136,13 @@ module Memory::PhysicalAllocator
 
     case target_address
     when UInt32
-      reserve(target_address, size)
+      set_page_range_state(target_address, size, true)
     else
       return Error::OutOfMemory
     end
+  end
+
+  def self.free_pages(address : UInt32, size : UInt32) : Nil | Error
+    set_page_range_state(address, size, false)
   end
 end

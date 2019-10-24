@@ -3,6 +3,7 @@ require "atomic"
 require "struct"
 require "./internal/external_types"
 require "./internal/utils"
+require "./internal/lang_utils"
 require "value"
 require "nil"
 require "comparable"
@@ -11,8 +12,9 @@ require "proc"
 require "./i386_utils"
 require "./logger/impl"
 
-lib Crt0
-  fun __farcry_early_stack_top : UInt16
+lib LinkerScript
+  $bss_start = BSS_START : UInt8
+  $bss_end = BSS_END : UInt8
 end
 
 fun __crystal_once_init : Void*
@@ -73,7 +75,8 @@ end
 
 # Farcry real entrypoint
 fun __farcry_real_entrypoint(multiboot2_magic : UInt32, multboot2_address : Void*) : NoReturn
-  Logger.initialize(Logger::Type::Serial)
+  bss_size = (pointerof(LinkerScript.bss_end).address - pointerof(LinkerScript.bss_start).address).to_u32
+  memset(pointerof(LinkerScript.bss_start), 0, bss_size)
 
   Multiboot2.init_from_arguments(multiboot2_magic, multboot2_address)
   LibCrystalMain.__crystal_main(0, Pointer(Pointer(UInt8)).new 0)

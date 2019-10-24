@@ -1,11 +1,53 @@
+abstract class LoggerDriver
+  include Placement
+
+  abstract def putc(c : UInt8)
+  abstract def set_color(color : Logger::Color)
+
+  def puts(str : String)
+    i = 0
+    chars = str.to_unsafe
+    chars_size = str.bytesize
+
+    raw_puts(chars, chars_size)
+  end
+
+  def raw_puts(chars : UInt8*, chars_size : Int)
+    i = 0
+
+    while i < chars_size
+      putc(chars[i])
+      i += 1
+    end
+  end
+
+  def put_number(value : Int, base, padding = 0)
+    value.internal_to_s(base, false) do |ptr, count|
+      tmp_count = count
+
+      if count == 0 && padding == 0
+        padding = 1
+      end
+
+      while padding > tmp_count
+        puts "0"
+        tmp_count += 1
+      end
+
+      raw_puts(ptr, count.to_u64)
+    end
+  end
+end
+
 require "../drivers/serial"
 require "../drivers/vga_text_mode"
 
 module Logger
   enum Type
-    None
+    None   = 0
     Serial
     Screen
+    All
   end
 
   enum Level
@@ -37,18 +79,19 @@ module Logger
   @@type = Type::None
   @@default_color = Color::White
 
+  @@serial_logger = uninitialized Serial
+  @@vga_logger = uninitialized VgaTextMode
+
   def self.initialize(type : Type)
+    @@serial_logger.initialize_inplace
+    @@vga_logger.initialize_inplace
     @@type = type
-    case type
-    when Type::Serial
-      Serial.initialize(Serial::COM1)
-    when Type::Screen
-      VgaTextMode.initialize
-    else
-      Serial.puts "logger setup as None."
-    end
 
     set_color(Color::White)
+  end
+
+  def self.serial_logger
+    @@serial_logger
   end
 
   def self.debug(str : String, line_break : Bool = true)
@@ -85,9 +128,12 @@ module Logger
   def self.puts(str : String)
     case @@type
     when Type::Serial
-      Serial.puts str
+      @@serial_logger.puts str
     when Type::Screen
-      VgaTextMode.puts str
+      @@vga_logger.puts str
+    when Type::All
+      @@serial_logger.puts str
+      @@vga_logger.puts str
     else
       # No operations
     end
@@ -96,9 +142,12 @@ module Logger
   def self.put_number(value : Int, base, padding = 0)
     case @@type
     when Type::Serial
-      Serial.put_number value, base, padding
+      @@serial_logger.put_number value, base, padding
     when Type::Screen
-      VgaTextMode.put_number value, base, padding
+      @@vga_logger.put_number value, base, padding
+    when Type::All
+      @@serial_logger.put_number value, base, padding
+      @@vga_logger.put_number value, base, padding
     else
       # No operations
     end
@@ -182,9 +231,12 @@ module Logger
   private def self.set_color(color : Color)
     case @@type
     when Type::Serial
-      Serial.set_color color
+      @@serial_logger.set_color color
     when Type::Screen
-      VgaTextMode.set_color color
+      @@vga_logger.set_color color
+    when Type::All
+      @@serial_logger.set_color color
+      @@vga_logger.set_color color
     else
       # No operations
     end
