@@ -1,5 +1,5 @@
-require "./internal/lang_utils"
 require "./arch/**"
-require "./drivers/**"
+require "./memory"
 require "./logger/**"
+require "./drivers/**"
 require "./i386_utils"

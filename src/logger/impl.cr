@@ -1,6 +1,4 @@
-abstract class LoggerDriver
-  include Placement
-
+abstract struct LoggerDriver
   abstract def putc(c : UInt8)
   abstract def set_color(color : Logger::Color)
 
@@ -83,8 +81,8 @@ module Logger
   @@vga_logger = uninitialized VgaTextMode
 
   def self.initialize(type : Type)
-    @@serial_logger.initialize_inplace
-    @@vga_logger.initialize_inplace
+    @@serial_logger = Serial.new
+    @@vga_logger = VgaTextMode.new
     @@type = type
 
     set_color(Color::White)

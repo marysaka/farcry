@@ -1,5 +1,5 @@
 # VGA Text Mode implementation
-class VgaTextMode < LoggerDriver
+struct VgaTextMode < LoggerDriver
   WIDTH  = 80
   HEIGHT = 25
 

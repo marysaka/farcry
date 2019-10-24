@@ -1,5 +1,5 @@
 # Simple UART implementation
-class Serial < LoggerDriver
+struct Serial < LoggerDriver
   COM1 = 0x3F8_u16
 
   @port : UInt16
