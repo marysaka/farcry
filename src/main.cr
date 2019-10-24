@@ -1,5 +1,5 @@
 require "./arch/gdt"
-require "./arch/memory/physical_allocator"
+require "./memory"
 
 Logger.initialize(Logger::Type::All)
 Logger.info "Welcome to FarCry"

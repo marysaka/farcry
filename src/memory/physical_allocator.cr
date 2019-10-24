@@ -1,17 +1,11 @@
+require "./types"
+
 lib LinkerScript
   $kernel_start = KERNEL_START : UInt8
   $kernel_end = KERNEL_END : UInt8
 end
 
 module Memory::PhysicalAllocator
-  enum Error : UInt8
-    InvalidAddress
-    InvalidSize
-    OutOfMemory
-    StateMismatch
-  end
-
-  PAGE_SIZE           = 0x1000
   BITMAP_ELEMENT_SIZE = sizeof(UInt32)
   @@bit_map = uninitialized StaticArray(UInt32, 0x8000)
 
