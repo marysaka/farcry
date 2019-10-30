@@ -37,7 +37,7 @@ fun abort : NoReturn
   end
 end
 
-def panic(panic_message : String)
+def panic(panic_message : String) : NoReturn
   Logger.error panic_message
   abort
 end

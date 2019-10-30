@@ -19,20 +19,30 @@ abstract struct LoggerDriver
     end
   end
 
-  def put_number(value : Int, base, padding = 0)
+  def put_number(value : Int, base, padding = 0, padding_after = false)
     value.internal_to_s(base, false) do |ptr, count|
-      tmp_count = count
-
-      if count == 0 && padding == 0
-        padding = 1
+      if value == 0
+        puts "0"
+        count += 1
       end
 
-      while padding > tmp_count
-        puts "0"
-        tmp_count += 1
+      tmp_count = count
+
+      if !padding_after
+        while padding > tmp_count
+          puts "0"
+          tmp_count += 1
+        end
       end
 
       raw_puts(ptr, count.to_u64)
+
+      if padding_after
+        while padding > tmp_count
+          puts "0"
+          tmp_count += 1
+        end
+      end
     end
   end
 end
@@ -137,15 +147,15 @@ module Logger
     end
   end
 
-  def self.put_number(value : Int, base, padding = 0)
+  def self.put_number(value : Int, base, padding = 0, padding_after = false)
     case @@type
     when Type::Serial
-      @@serial_logger.put_number value, base, padding
+      @@serial_logger.put_number value, base, padding, padding_after
     when Type::Screen
-      @@vga_logger.put_number value, base, padding
+      @@vga_logger.put_number value, base, padding, padding_after
     when Type::All
-      @@serial_logger.put_number value, base, padding
-      @@vga_logger.put_number value, base, padding
+      @@serial_logger.put_number value, base, padding, padding_after
+      @@vga_logger.put_number value, base, padding, padding_after
     else
       # No operations
     end
@@ -192,10 +202,58 @@ module Logger
           line_content[i] = 0
         end
 
-        put_number line_content[i], 16, 2
+        put_number line_content[i], 16, 8
         if i.remainder(2) == 1
           puts " "
         end
+      end
+      puts "\n"
+    end
+  end
+
+  def self.print_bin(pointer : UInt8*, size : Int)
+    print_bin_with_address(pointer, size, pointer.address)
+  end
+
+  def self.print_bin_with_address(pointer : UInt8*, size : Int, display_address : UInt64)
+    line_content = uninitialized UInt8[4]
+    last_content_index = 0
+
+    size.times do |i|
+      content_index = i.remainder(line_content.size)
+
+      # line_content is full and ready to be printed
+      if last_content_index > content_index
+        put_number display_address + i, 16, 8
+        puts ": "
+
+        line_content.size.times do |i|
+          put_number(line_content[i], 2, 8, true)
+          puts " "
+        end
+
+        puts "\n"
+      end
+
+      line_content[content_index] = pointer[i]
+
+      last_content_index = content_index
+
+      content_index += 1
+    end
+
+    # If the loop ended while not printing the last line, make sure to do so
+    if last_content_index != line_content.size
+      put_number display_address + (size & (0 - line_content.size)).to_u64, 16, 8
+      puts ": "
+
+      line_content.size.times do |i|
+        if i > last_content_index
+          line_content[i] = 0
+        end
+
+        put_number(line_content[i], 2, 8, true)
+        puts " "
       end
       puts "\n"
     end

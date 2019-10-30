@@ -1,7 +1,8 @@
 require "./arch/gdt"
+require "./arch/paging/**"
 require "./memory"
 
-Logger.initialize(Logger::Type::All)
+Logger.initialize(Logger::Type::Serial)
 Logger.info "Welcome to FarCry"
 
 Logger.debug "Setup GDT"
@@ -46,3 +47,15 @@ else
 end
 
 Logger.info "Job done"
+
+kernel_start = pointerof(LinkerScript.kernel_start).address.to_u32
+kernel_end = pointerof(LinkerScript.kernel_end).address.to_u32
+kernel_page_directory = Arch::Paging::PageDirectory.new
+mapping_result = kernel_page_directory.identity_map_pages(kernel_start, kernel_end - kernel_start, Memory::Permissions::Read | Memory::Permissions::Write, false, true)
+if allocation_result.nil?
+  panic("Cannot identity map the kernel")
+end
+
+kernel_page_directory.enable_paging
+
+Logger.info "MMU ON"
