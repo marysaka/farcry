@@ -52,10 +52,18 @@ kernel_start = pointerof(LinkerScript.kernel_start).address.to_u32
 kernel_end = pointerof(LinkerScript.kernel_end).address.to_u32
 kernel_page_directory = Arch::Paging::PageDirectory.new
 mapping_result = kernel_page_directory.identity_map_pages(kernel_start, kernel_end - kernel_start, Memory::Permissions::Read | Memory::Permissions::Write, false, true)
-if allocation_result.nil?
+if !mapping_result.nil?
   panic("Cannot identity map the kernel")
 end
 
-kernel_page_directory.enable_paging
+result = kernel_page_directory.map_page 0xCAFE0000, 0xDEAD0000, Memory::Permissions::Read | Memory::Permissions::Write, false
+if !result.nil?
+  panic("Cannot map test page")
+end
 
+kernel_page_directory.enable_paging
 Logger.info "MMU ON"
+
+ptr_test = Pointer(UInt8).new 0xDEAD0000
+
+ptr_test.value = 42

@@ -36,9 +36,12 @@ module Arch::Paging
     end
 
     def get_table_entry(address : UInt32, must_be_present = true) : Pointer(PageTableEntry) | Nil
-      index = address >> 12
+      index = (address >> 12) & 0x3FF
 
       result = Pointer(PageTableEntry).new(address().to_u64)
+      Logger.info "get_table_entry table index 0x", false
+      Logger.put_number index, 16
+      Logger.puts "\n"
       result += index
 
       if result.value.present? || !must_be_present
@@ -72,11 +75,11 @@ module Arch::Paging
 
     def dump
       ptr = pointerof(@value)
-      Logger.error "PageTableEntry {\npresent: 0x", false
-      Logger.put_number address, 16, 8
+      Logger.error "PageTableEntry {\naddress: 0x", false
+      Logger.put_number ptr.address, 16, 8
       Logger.puts ", dump: 0x"
       Logger.put_number @value, 16, 8
-      Logger.puts "}\n"
+      Logger.puts "\n}\n"
     end
   end
 
@@ -116,11 +119,15 @@ module Arch::Paging
     end
 
     private def get_page_table(address : UInt32, must_be_present = true) : Pointer(PageDirectoryEntry) | Nil
-      page_directory_index = address >> 22
+      page_directory_index = (address >> 22) & 0x3FF
 
       page_table = @entries
-
       page_table += page_directory_index
+
+      Logger.puts "page_entry address: "
+      Logger.put_number page_table.address, 16
+      Logger.puts "\n"
+
       if page_table.value.present? || !must_be_present
         return page_table
       end
@@ -167,6 +174,10 @@ module Arch::Paging
       page_table = get_page_table address
 
       if page_table.nil?
+        Logger.debug "Creating page table at address 0x", false
+        Logger.put_number address.to_u32 >> 22 << 22, 16
+        Logger.puts "\n"
+
         page_table = create_page_table(address)
       end
 
@@ -201,8 +212,6 @@ module Arch::Paging
         i += 1
       end
 
-      flush
-
       nil
     end
 
@@ -227,6 +236,7 @@ module Arch::Paging
       when Pointer(PageDirectoryEntry)
         table_entry = page_table.value.get_table_entry virtual_address, false
 
+        Logger.info "HELP ME"
         if table_entry.nil? || table_entry.value.present?
           Logger.error "Page entry at address ", false
           Logger.put_number virtual_address.to_u32, 16
@@ -241,6 +251,10 @@ module Arch::Paging
         table_entry.value.write_mode = false
         table_entry.value.user_accesible = user_accesible
         table_entry.value.present = true
+
+        table_entry.value.dump
+
+        flush
 
         nil
       when Memory::Error

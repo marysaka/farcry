@@ -76,9 +76,6 @@ module Memory::PhysicalAllocator
 
     base_page_index = address >> 12
     page_count = size / PAGE_SIZE
-    Logger.info "page count: 0x", false
-    Logger.put_number page_count, 16
-    Logger.puts "\n"
 
     page_count.times do |page_index|
       tmp = base_page_index + page_index
@@ -130,6 +127,9 @@ module Memory::PhysicalAllocator
 
     case target_address
     when UInt32
+      Logger.info "Allocated physical page at 0x", false
+      Logger.put_number target_address, 16
+      Logger.puts "\n"
       set_page_range_state(target_address, size, true)
     else
       return Error::OutOfMemory

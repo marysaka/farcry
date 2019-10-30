@@ -13,10 +13,9 @@ end
 @[AlwaysInline]
 def flush_tlb
   asm("
-  .intel_syntax noprefix
-  mov eax, cr3
-  mov cr3, eax" ::: "eax"
-                : "volatile")
+  mov %cr3, %eax
+  mov %eax, %cr3" ::: "eax"
+                  : "volatile")
 end
 
 # fun swap_cr3(page_directory_address : Pointer(Void)) : Pointer(Void)
