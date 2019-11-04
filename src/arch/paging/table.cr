@@ -215,13 +215,17 @@ module Arch::Paging
       nil
     end
 
-    def map_page_ranges(physical_address : UInt32, virtual_address : UInt32, size : UInt32) : Nil | Memory::Error
+    def map_page_ranges(physical_address : UInt32, virtual_address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
       if physical_address % Memory::PAGE_SIZE != 0 || virtual_address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
       end
 
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
+      end
+
+      (size / Memory::PAGE_SIZE).times do |i|
+        map_page(physical_address + i * Memory::PAGE_SIZE, virtual_address + i * Memory::PAGE_SIZE, permissions, user_accesible)
       end
     end
 
@@ -236,7 +240,6 @@ module Arch::Paging
       when Pointer(PageDirectoryEntry)
         table_entry = page_table.value.get_table_entry virtual_address, false
 
-        Logger.info "HELP ME"
         if table_entry.nil? || table_entry.value.present?
           Logger.error "Page entry at address ", false
           Logger.put_number virtual_address.to_u32, 16
@@ -251,8 +254,6 @@ module Arch::Paging
         table_entry.value.write_mode = false
         table_entry.value.user_accesible = user_accesible
         table_entry.value.present = true
-
-        table_entry.value.dump
 
         flush
 

@@ -2,7 +2,7 @@ require "./arch/gdt"
 require "./arch/paging/**"
 require "./memory"
 
-Logger.initialize(Logger::Type::Serial)
+Logger.initialize(Logger::Type::All)
 Logger.info "Welcome to FarCry"
 
 Logger.debug "Setup GDT"
@@ -56,7 +56,7 @@ if !mapping_result.nil?
   panic("Cannot identity map the kernel")
 end
 
-result = kernel_page_directory.map_page 0xCAFE0000, 0xDEAD0000, Memory::Permissions::Read | Memory::Permissions::Write, false
+result = kernel_page_directory.map_page_ranges 0xCAFE0000, 0xDEAD0000, 0x2000, Memory::Permissions::Read | Memory::Permissions::Write, false
 if !result.nil?
   panic("Cannot map test page")
 end
