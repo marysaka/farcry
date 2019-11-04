@@ -56,13 +56,15 @@ if !mapping_result.nil?
   panic("Cannot identity map the kernel")
 end
 
-result = kernel_page_directory.map_page_ranges 0xCAFE0000, 0xDEAD0000, 0x2000, Memory::Permissions::Read | Memory::Permissions::Write, false
+kernel_page_directory.enable_paging
+Logger.info "MMU ON"
+
+result = kernel_page_directory.map_page 0xCAFE0000, 0xDEAD0000, Memory::Permissions::Read | Memory::Permissions::Write, false
 if !result.nil?
   panic("Cannot map test page")
 end
 
-kernel_page_directory.enable_paging
-Logger.info "MMU ON"
+Logger.info "Mapped 0xDEAD0000 to 0xCAFE0000"
 
 ptr_test = Pointer(UInt8).new 0xDEAD0000
 

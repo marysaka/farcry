@@ -35,14 +35,18 @@ module Arch::Paging
       @value & ~((1 << 12) - 1)
     end
 
-    def get_table_entry(address : UInt32, must_be_present = true) : Pointer(PageTableEntry) | Nil
-      index = (address >> 12) & 0x3FF
+    def get_table_entry(address : UInt32, is_paging_on : Bool, must_be_present = true) : Pointer(PageTableEntry) | Nil
+      page_index = (address >> 12) & 0x3FF
+      table_index = (address >> 22) & 0x3FF
 
-      result = Pointer(PageTableEntry).new(address().to_u64)
-      Logger.info "get_table_entry table index 0x", false
-      Logger.put_number index, 16
-      Logger.puts "\n"
-      result += index
+      if is_paging_on
+        target_page_entry_address = (PageDirectory::PAGE_DIRECTORY_BASE + table_index * Memory::PAGE_SIZE).to_u64
+      else
+        target_page_entry_address = address().to_u64
+      end
+
+      result = Pointer(PageTableEntry).new(target_page_entry_address)
+      result += page_index
 
       if result.value.present? || !must_be_present
         return result
@@ -85,14 +89,18 @@ module Arch::Paging
 
   struct PageDirectory
     # hardcoded value to do a recursive mapping
+    PAGE_DIRECTORY_BASE = 0xffc00000_u32
     PAGE_DIRECTORY_PAGE = 0xfffff000_u32
     @entries = Pointer(PageDirectoryEntry).new 0
+    @entries_physical = Pointer(PageDirectoryEntry).new 0
 
     def initialize
       result = Memory::PhysicalAllocator.allocate_pages(Memory::PAGE_SIZE)
       case result
       when Pointer(Void)
         @entries = result.as(Pointer(PageDirectoryEntry))
+        @entries_physical = @entries
+
         memset(@entries.as(UInt8*), 0, Memory::PAGE_SIZE)
 
         page_table = get_page_table PAGE_DIRECTORY_PAGE, false
@@ -118,15 +126,16 @@ module Arch::Paging
       end
     end
 
+    private def is_paging_on
+      # TOOD: detect that with cr3
+      @entries.address != @entries_physical.address
+    end
+
     private def get_page_table(address : UInt32, must_be_present = true) : Pointer(PageDirectoryEntry) | Nil
       page_directory_index = (address >> 22) & 0x3FF
 
       page_table = @entries
       page_table += page_directory_index
-
-      Logger.puts "page_entry address: "
-      Logger.put_number page_table.address, 16
-      Logger.puts "\n"
 
       if page_table.value.present? || !must_be_present
         return page_table
@@ -138,10 +147,11 @@ module Arch::Paging
       result = Memory::PhysicalAllocator.allocate_pages(Memory::PAGE_SIZE)
       case result
       when Pointer(Void)
-        memset(result.as(UInt8*), 0, Memory::PAGE_SIZE)
+        # First of all, we get the page table
         page_table = get_page_table address, false
         case page_table
         when Pointer(PageDirectoryEntry)
+          # We setup it
           page_table.value.address = result.address.to_u32
           page_table.value.write_mode = false
           page_table.value.no_cache = false
@@ -150,8 +160,21 @@ module Arch::Paging
           page_table.value.present = true
           page_table.value.read_write = true
 
-          flush
+          # Flush the TLB
+          flush_tlb
 
+          # now the page should be mapped in the recursive mapping!
+          # So we can just get the first entry and clean the whole table again and flush the tlb once more to be sure we don't have garbage mapping.
+          page_table_first_entry = page_table.value.get_table_entry address >> 22 << 22, is_paging_on, false
+
+          if page_table_first_entry.nil?
+            panic("page_table_first_entry is nil (impossible)")
+          else
+            memset(page_table_first_entry.as(UInt8*), 0, Memory::PAGE_SIZE)
+          end
+
+          # Flush the TLB
+          flush_tlb
           return page_table
         else
           Logger.error "Page table at address ", false
@@ -238,7 +261,7 @@ module Arch::Paging
 
       case page_table
       when Pointer(PageDirectoryEntry)
-        table_entry = page_table.value.get_table_entry virtual_address, false
+        table_entry = page_table.value.get_table_entry virtual_address, is_paging_on, false
 
         if table_entry.nil? || table_entry.value.present?
           Logger.error "Page entry at address ", false
@@ -274,7 +297,8 @@ module Arch::Paging
     end
 
     def enable_paging
-      ::enable_paging(@entries.as(Void*))
+      @entries = Pointer(PageDirectoryEntry).new PAGE_DIRECTORY_PAGE.to_u64
+      ::enable_paging(@entries_physical.as(Void*))
     end
   end
 end

@@ -114,6 +114,6 @@ qemu-debug: $(NAME).iso
 	qemu-system-i386 -d cpu_reset -d int -serial mon:stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT} -s -S
 
 qemu: $(NAME).iso
-	qemu-system-i386 -serial stdio -machine q35 -no-reboot -boot d -d int  -cdrom $(NAME).iso -vnc ${VNC_PORT}
+	qemu-system-i386 -serial mon:stdio -machine q35 -no-reboot -boot d -cdrom $(NAME).iso -vnc ${VNC_PORT}
 
 .PHONY: clean all
