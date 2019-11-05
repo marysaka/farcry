@@ -95,7 +95,7 @@ module Arch::Paging
     @entries_physical = Pointer(PageDirectoryEntry).new 0
 
     def initialize
-      result = Memory::PhysicalAllocator.allocate_pages(Memory::PAGE_SIZE)
+      result = Memory::PhysicalAllocator.allocate(Memory::PAGE_SIZE)
       case result
       when Pointer(Void)
         @entries = result.as(Pointer(PageDirectoryEntry))
@@ -131,6 +131,11 @@ module Arch::Paging
       @entries.address != @entries_physical.address
     end
 
+    def enable_paging
+      @entries = Pointer(PageDirectoryEntry).new PAGE_DIRECTORY_PAGE.to_u64
+      ::enable_paging(@entries_physical.as(Void*))
+    end
+
     private def get_page_table(address : UInt32, must_be_present = true) : Pointer(PageDirectoryEntry) | Nil
       page_directory_index = (address >> 22) & 0x3FF
 
@@ -143,8 +148,8 @@ module Arch::Paging
       nil
     end
 
-    def create_page_table(address : UInt32) : Pointer(PageDirectoryEntry) | Memory::Error
-      result = Memory::PhysicalAllocator.allocate_pages(Memory::PAGE_SIZE)
+    private def create_page_table(address : UInt32) : Pointer(PageDirectoryEntry) | Memory::Error
+      result = Memory::PhysicalAllocator.allocate(Memory::PAGE_SIZE)
       case result
       when Pointer(Void)
         # First of all, we get the page table
@@ -252,6 +257,29 @@ module Arch::Paging
       end
     end
 
+    private def is_reserved(address : UInt32) : Bool
+      page_table = get_page_table address
+      if page_table.nil?
+        return false
+      end
+
+      page_table_entry = page_table.value.get_table_entry address, is_paging_on
+
+      !page_table_entry.nil?
+    end
+
+    private def is_reserved_range(address : UInt32, size : UInt32) : Bool
+      page_count = size / PAGE_SIZE
+
+      page_count.times do |page_index|
+        if is_reserved(address + page_index * PAGE_SIZE)
+          return true
+        end
+      end
+
+      false
+    end
+
     def map_page(physical_address : UInt32, virtual_address : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
       if physical_address % Memory::PAGE_SIZE != 0 || virtual_address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
@@ -288,17 +316,67 @@ module Arch::Paging
       end
     end
 
-    def allocate_pages(size : UInt32) : Pointer(Void) | Memory::Error
-      Memory::Error::OutOfMemory
+    def allocate(size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
+      if size % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidSize
+      end
+
+      target_address = nil
+      tmp_size = size
+
+      tmp_address = 0_u32
+
+      while tmp_size > 0
+        if is_reserved(tmp_address)
+          tmp_size = size
+          target_address = nil
+        else
+          if target_address.nil?
+            target_address = tmp_address
+          end
+
+          tmp_size -= Memory::PAGE_SIZE
+        end
+
+        # That was the last page
+        break if tmp_address == Memory::LAST_PAGE_ADDRESS
+
+        tmp_address += Memory::PAGE_SIZE
+      end
+
+      if tmp_size != 0
+        return Memory::Error::OutOfMemory
+      end
+
+      case target_address
+      when UInt32
+        Logger.info "Found availaible virtual space at 0x", false
+        Logger.put_number target_address, 16
+        Logger.puts "\n"
+
+        page_index = 0_u32
+
+        error = Memory::PhysicalAllocator.allocate_non_contiguous(size) do |physical_address|
+          res = map_page(physical_address, target_address + page_index * Memory::PAGE_SIZE, permissions, user_accesible)
+
+          if !res.nil?
+            panic("allocate: Invalid argument sent to map_page")
+          end
+
+          page_index += 1
+        end
+
+        if !error.nil?
+          return error
+        end
+        Pointer(Void).new target_address.to_u64
+      else
+        return Memory::Error::OutOfMemory
+      end
     end
 
     def flush
       flush_tlb
-    end
-
-    def enable_paging
-      @entries = Pointer(PageDirectoryEntry).new PAGE_DIRECTORY_PAGE.to_u64
-      ::enable_paging(@entries_physical.as(Void*))
     end
   end
 end

@@ -32,7 +32,7 @@ Logger.info "Now showing the stackdump"
 Logger.print_hex stack_bottom, stack_size
 
 Memory::PhysicalAllocator.initialize
-allocation_result = Memory::PhysicalAllocator.allocate_pages 0x1000
+allocation_result = Memory::PhysicalAllocator.allocate Memory::PAGE_SIZE
 
 case allocation_result
 when Pointer(Void)
@@ -59,13 +59,18 @@ end
 kernel_page_directory.enable_paging
 Logger.info "MMU ON"
 
-result = kernel_page_directory.map_page 0xCAFE0000, 0xDEAD0000, Memory::Permissions::Read | Memory::Permissions::Write, false
-if !result.nil?
-  panic("Cannot map test page")
+allocation_result = kernel_page_directory.allocate 0x10000000, Memory::Permissions::Read | Memory::Permissions::Write, false
+case allocation_result
+when Pointer(Void)
+  Logger.info "Allocated a virtual pages at 0x", false
+  Logger.put_number allocation_result.address, 16
+  Logger.puts "\n"
+
+  ptr_test = allocation_result.as(UInt8*)
+  ptr_test.value = 42
+else
+  Logger.error "Cannot allocate: ", false
+  Logger.put_number allocation_result.to_u32, 16
+  Logger.puts "\n"
+  panic("Cannot allocate virtual page in the kernel")
 end
-
-Logger.info "Mapped 0xDEAD0000 to 0xCAFE0000"
-
-ptr_test = Pointer(UInt8).new 0xDEAD0000
-
-ptr_test.value = 42

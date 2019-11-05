@@ -9,6 +9,14 @@ module Memory::PhysicalAllocator
   BITMAP_ELEMENT_SIZE = sizeof(UInt32)
   @@bit_map = uninitialized StaticArray(UInt32, 0x8000)
 
+  struct Status
+    property free_pages : UInt32
+    property total_pages : UInt32
+
+    def initialize(@free_pages, @total_pages)
+    end
+  end
+
   def self.initialize
     # zeroed the bit_map
     memset(Pointer(UInt8).new(pointerof(@@bit_map).address), 0, sizeof(typeof(@@bit_map)).to_u32)
@@ -92,7 +100,26 @@ module Memory::PhysicalAllocator
     Pointer(Void).new address.to_u64
   end
 
-  def self.allocate_pages(size : UInt32) : Pointer(Void) | Error
+  def self.get_status : Status
+    address = 0_u32
+
+    free_pages = 0_u32
+    total_pages = 0_u32
+
+    while true
+      if !is_reserved(address)
+        free_pages += 1
+      end
+
+      total_pages += 1
+
+      break if address == LAST_PAGE_ADDRESS
+      address += PAGE_SIZE
+    end
+    Status.new(free_pages, total_pages)
+  end
+
+  def self.allocate(size : UInt32) : Pointer(Void) | Error
     if size % PAGE_SIZE != 0
       return Error::InvalidSize
     end
@@ -106,19 +133,18 @@ module Memory::PhysicalAllocator
       if is_reserved(tmp_address)
         tmp_size = size
         target_address = nil
-        tmp_address += PAGE_SIZE
-        next
-      end
+      else
+        if target_address.nil?
+          target_address = tmp_address
+        end
 
-      if target_address.nil?
-        target_address = tmp_address
+        tmp_size -= Memory::PAGE_SIZE
       end
 
       # That was the last page
-      break if tmp_address == UInt32::MAX - PAGE_SIZE
+      break if tmp_address == Memory::LAST_PAGE_ADDRESS
 
-      tmp_size -= PAGE_SIZE
-      tmp_address += PAGE_SIZE
+      tmp_address += Memory::PAGE_SIZE
     end
 
     if tmp_size != 0
@@ -136,7 +162,46 @@ module Memory::PhysicalAllocator
     end
   end
 
-  def self.free_pages(address : UInt32, size : UInt32) : Nil | Error
+  def self.allocate_non_contiguous(size : UInt32) : Nil | Error
+    page_count = size / Memory::PAGE_SIZE
+
+    status = get_status
+    case status
+    when Status
+      if status.free_pages < page_count
+        return Memory::Error::OutOfMemory
+      end
+
+      target_address = nil
+      tmp_size = size
+
+      tmp_address = 0_u32
+
+      while tmp_size > 0
+        if !is_reserved(tmp_address)
+          yield tmp_address
+
+          tmp_size -= PAGE_SIZE
+        end
+
+        # That was the last page
+        break if tmp_address == LAST_PAGE_ADDRESS
+
+        tmp_address += PAGE_SIZE
+      end
+
+      # If we don't have memory left at this point, as we checked the status before, this is a TOCTOU, we panic.
+      if tmp_size != 0
+        panic("TOCTOU in allocate_non_contiguous")
+      end
+
+      nil
+    else
+      return status
+    end
+  end
+
+  def self.free(address : UInt32, size : UInt32) : Nil | Error
     set_page_range_state(address, size, false)
   end
 end
