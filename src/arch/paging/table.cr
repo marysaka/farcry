@@ -74,7 +74,7 @@ module Arch::Paging
     end
 
     def address
-      @value & ~((1 << 12) - 1)
+      @value >> 12 << 12
     end
 
     def dump
@@ -183,7 +183,7 @@ module Arch::Paging
           return page_table
         else
           Logger.error "Page table at address ", false
-          Logger.put_number address.to_u32, 16
+          Logger.put_number address, 16
           Logger.puts " is already used!\n"
 
           panic("Page table already in use during creation!")
@@ -202,9 +202,9 @@ module Arch::Paging
       page_table = get_page_table address
 
       if page_table.nil?
-        Logger.debug "Creating page table at address 0x", false
-        Logger.put_number address.to_u32 >> 22 << 22, 16
-        Logger.puts "\n"
+        # Logger.debug "Creating page table at address 0x", false
+        # Logger.put_number address.to_u32 >> 22 << 22, 16
+        # Logger.puts "\n"
 
         page_table = create_page_table(address)
       end
@@ -308,11 +308,63 @@ module Arch::Paging
 
         flush
 
+        # Logger.debug "Mapped physical address 0x", false
+        # Logger.put_number physical_address.to_u32, 16
+        # Logger.puts " to virtual address 0x"
+        # Logger.put_number virtual_address.to_u32, 16
+        # Logger.puts "\n"
+
         nil
       when Memory::Error
         return page_table
       else
         panic("Unknown return from get_or_create_page_table!")
+      end
+    end
+
+    def unmap_page(virtual_address : UInt32, free_physical_frame = true) : Nil | Memory::Error
+      if virtual_address % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidAddress
+      end
+
+      page_table = get_page_table virtual_address
+
+      case page_table
+      when Pointer(PageDirectoryEntry)
+        table_entry = page_table.value.get_table_entry virtual_address, is_paging_on, false
+
+        if table_entry.nil?
+          panic("Brace yourself, the impossible has happened!")
+        end
+
+        if !table_entry.value.present?
+          Logger.error "Page entry at address ", false
+          Logger.put_number virtual_address.to_u32, 16
+          Logger.puts " is not in used!\n"
+
+          panic("Trying to unmap a not mapped page!")
+        end
+
+        physical_address = table_entry.value.address
+
+        table_entry.value.present = false
+        flush
+
+        # Logger.debug "Unmapping physical address 0x", false
+        # Logger.put_number physical_address.to_u32, 16
+        # Logger.puts " to virtual address 0x"
+        # Logger.put_number virtual_address.to_u32, 16
+        # Logger.puts "\n"
+
+        if free_physical_frame
+          return Memory::PhysicalAllocator.free(physical_address, Memory::PAGE_SIZE)
+        end
+
+        nil
+      when Memory::Error
+        panic("Error while trying to unmap a page!")
+      else
+        panic("Trying to unmap a not mapped page!")
       end
     end
 
@@ -372,6 +424,32 @@ module Arch::Paging
         Pointer(Void).new target_address.to_u64
       else
         return Memory::Error::OutOfMemory
+      end
+    end
+
+    def free(address : UInt32, size : UInt32) : Nil | Memory::Error
+      if address % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidAddress
+      end
+
+      if size % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidSize
+      end
+
+      page_count = size / Memory::PAGE_SIZE
+      i = 0
+      while i < page_count
+        target_address = address + i * Memory::PAGE_SIZE
+
+        result = unmap_page(target_address)
+
+        if !result.nil?
+          Logger.error "Cannot free: ", false
+          Logger.put_number result.to_u32, 16
+          Logger.puts "\n"
+          panic("unmap_page failed!")
+        end
+        i += 1
       end
     end
 

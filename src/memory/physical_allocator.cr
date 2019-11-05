@@ -45,8 +45,8 @@ module Memory::PhysicalAllocator
   end
 
   def self.dump(limit = UInt32::MAX)
-    map_index = (limit >> 12) / 8
-    Logger.print_hex_with_address(Pointer(UInt8).new(pointerof(@@bit_map).address), map_index.to_u32, 0x0)
+    map_index = (limit >> 12) / (BITMAP_ELEMENT_SIZE * 8)
+    Logger.print_hex_with_address(Pointer(UInt8).new(pointerof(@@bit_map).address), map_index, 0x0)
   end
 
   private def self.is_reserved(address : UInt32) : Bool
@@ -58,10 +58,11 @@ module Memory::PhysicalAllocator
   end
 
   private def self.is_reserved_range(address : UInt32, size : UInt32) : Bool
+    tmp_address = address >> 12
     page_count = size / PAGE_SIZE
 
     page_count.times do |page_index|
-      if is_reserved(address + page_index * PAGE_SIZE)
+      if is_reserved((tmp_address + page_index) << 12)
         return true
       end
     end
@@ -79,6 +80,9 @@ module Memory::PhysicalAllocator
     end
 
     if is_reserved_range(address, size) == is_used
+      Logger.debug "trying to change an aleady set state at address: 0x", false
+      Logger.put_number address, 16
+      Logger.puts "\n"
       return Error::StateMismatch
     end
 
@@ -91,9 +95,9 @@ module Memory::PhysicalAllocator
       bit_index = tmp % (BITMAP_ELEMENT_SIZE * 8)
 
       if is_used
-        @@bit_map[map_index] |= 1 << bit_index
+        @@bit_map[map_index] |= 1_u64 << bit_index
       else
-        @@bit_map[map_index] &= ~(1 << bit_index)
+        @@bit_map[map_index] &= ~(1_u64 << bit_index)
       end
     end
 
@@ -153,9 +157,9 @@ module Memory::PhysicalAllocator
 
     case target_address
     when UInt32
-      Logger.info "Allocated physical page at 0x", false
-      Logger.put_number target_address, 16
-      Logger.puts "\n"
+      # Logger.debug "Allocated physical page at 0x", false
+      # Logger.put_number target_address, 16
+      # Logger.puts "\n"
       set_page_range_state(target_address, size, true)
     else
       return Error::OutOfMemory
@@ -163,13 +167,13 @@ module Memory::PhysicalAllocator
   end
 
   def self.allocate_non_contiguous(size : UInt32) : Nil | Error
-    page_count = size / Memory::PAGE_SIZE
+    page_count = size / PAGE_SIZE
 
     status = get_status
     case status
     when Status
       if status.free_pages < page_count
-        return Memory::Error::OutOfMemory
+        return Error::OutOfMemory
       end
 
       target_address = nil
@@ -179,6 +183,16 @@ module Memory::PhysicalAllocator
 
       while tmp_size > 0
         if !is_reserved(tmp_address)
+          result = set_page_range_state(tmp_address, PAGE_SIZE, true)
+          case result
+          when Memory::Error
+            panic("TOCTOU in allocate_non_contiguous")
+          end
+
+          # Logger.debug "Allocated physical page at 0x", false
+          # Logger.put_number tmp_address, 16
+          # Logger.puts "\n"
+
           yield tmp_address
 
           tmp_size -= PAGE_SIZE
@@ -202,6 +216,13 @@ module Memory::PhysicalAllocator
   end
 
   def self.free(address : UInt32, size : UInt32) : Nil | Error
-    set_page_range_state(address, size, false)
+    result = set_page_range_state(address, size, false)
+
+    case result
+    when Memory::Error
+      result
+    else
+      nil
+    end
   end
 end

@@ -2,7 +2,7 @@ require "./arch/gdt"
 require "./arch/paging/**"
 require "./memory"
 
-Logger.initialize(Logger::Type::All)
+Logger.initialize(Logger::Type::Serial)
 Logger.info "Welcome to FarCry"
 
 Logger.debug "Setup GDT"
@@ -73,4 +73,32 @@ else
   Logger.put_number allocation_result.to_u32, 16
   Logger.puts "\n"
   panic("Cannot allocate virtual page in the kernel")
+end
+
+allocation_result = kernel_page_directory.free allocation_result.address.to_u32, 0x10000000
+
+if allocation_result.nil?
+  Logger.info "Freed virtual pages!"
+end
+
+allocation_result = kernel_page_directory.allocate 0x10000000, Memory::Permissions::Read | Memory::Permissions::Write, false
+case allocation_result
+when Pointer(Void)
+  Logger.info "Allocated a virtual pages at 0x", false
+  Logger.put_number allocation_result.address, 16
+  Logger.puts "\n"
+
+  ptr_test = allocation_result.as(UInt8*)
+  ptr_test.value = 42
+else
+  Logger.error "Cannot allocate: ", false
+  Logger.put_number allocation_result.to_u32, 16
+  Logger.puts "\n"
+  panic("Cannot allocate virtual page in the kernel")
+end
+
+allocation_result = kernel_page_directory.free allocation_result.address.to_u32, 0x10000000
+
+if allocation_result.nil?
+  Logger.info "Freed virtual pages!"
 end
