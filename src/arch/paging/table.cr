@@ -163,6 +163,7 @@ module Arch::Paging
           page_table.value.large_page = false
           page_table.value.global = false
           page_table.value.present = true
+          page_table.value.user_accesible = true
           page_table.value.read_write = true
 
           # Flush the TLB
@@ -372,6 +373,10 @@ module Arch::Paging
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
       end
+
+      Logger.debug "entries 0x", false
+      Logger.put_number @entries.address, 16
+      Logger.puts "\n"
 
       target_address = nil
       tmp_size = size

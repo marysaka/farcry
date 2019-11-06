@@ -50,3 +50,14 @@ fun __assert(msg : UInt8*, file : UInt8*, line : UInt32)
   Logger.serial_logger.put_number(line, 10)
   abort
 end
+
+struct SinglyLinkedList(T)
+  @data : T
+  @next : Pointer(SinglyLinkedList(T))
+
+  def initialize(@data, @next = Pointer(SinglyLinkedList(T)).new(0))
+  end
+
+  property data
+  property "next"
+end

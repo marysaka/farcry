@@ -1,10 +1,5 @@
 require "./types"
 
-lib LinkerScript
-  $kernel_start = KERNEL_START : UInt8
-  $kernel_end = KERNEL_END : UInt8
-end
-
 module Memory::PhysicalAllocator
   BITMAP_ELEMENT_SIZE = sizeof(UInt32)
   @@bit_map = uninitialized StaticArray(UInt32, 0x8000)
@@ -21,6 +16,7 @@ module Memory::PhysicalAllocator
     # zeroed the bit_map
     memset(Pointer(UInt8).new(pointerof(@@bit_map).address), 0, sizeof(typeof(@@bit_map)).to_u32)
 
+    # TODO: Move this out of here and pass this as arguments
     kernel_start = pointerof(LinkerScript.kernel_start).address.to_u32
     kernel_end = pointerof(LinkerScript.kernel_end).address.to_u32
 

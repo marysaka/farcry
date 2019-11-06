@@ -14,6 +14,8 @@ require "./logger/impl"
 lib LinkerScript
   $bss_start = BSS_START : UInt8
   $bss_end = BSS_END : UInt8
+  $kernel_start = KERNEL_START : UInt8
+  $kernel_end = KERNEL_END : UInt8
 end
 
 fun __crystal_once_init : Void*
