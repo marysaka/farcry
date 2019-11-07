@@ -69,6 +69,9 @@ module Arch::Paging
     define_bit no_cache, 4
     define_bit accessed, 5
 
+    # Custom
+    define_bit reserved_space, 9
+
     def address=(address : UInt32)
       @value = address | @value
     end
@@ -258,7 +261,7 @@ module Arch::Paging
       end
     end
 
-    private def is_reserved(address : UInt32) : Bool
+    private def is_present(address : UInt32) : Bool
       page_table = get_page_table address
       if page_table.nil?
         return false
@@ -267,6 +270,33 @@ module Arch::Paging
       page_table_entry = page_table.value.get_table_entry address, is_paging_on
 
       !page_table_entry.nil?
+    end
+
+    private def is_reserved(address : UInt32) : Bool
+      page_table = get_page_table address
+      if page_table.nil?
+        return false
+      end
+
+      page_table_entry = page_table.value.get_table_entry address, is_paging_on, false
+
+      if page_table_entry.nil?
+        panic("impossible")
+      end
+
+      page_table_entry.value.reserved_space?
+    end
+
+    private def is_present_range(address : UInt32, size : UInt32) : Bool
+      page_count = size / PAGE_SIZE
+
+      page_count.times do |page_index|
+        if is_present(address + page_index * PAGE_SIZE)
+          return true
+        end
+      end
+
+      false
     end
 
     private def is_reserved_range(address : UInt32, size : UInt32) : Bool
@@ -279,6 +309,37 @@ module Arch::Paging
       end
 
       false
+    end
+
+    private def reserve_page(virtual_address : UInt32) : Nil | Memory::Error
+      if virtual_address % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidAddress
+      end
+
+      page_table = get_or_create_page_table virtual_address
+
+      case page_table
+      when Pointer(PageDirectoryEntry)
+        table_entry = page_table.value.get_table_entry virtual_address, is_paging_on, false
+
+        if table_entry.nil? || table_entry.value.present?
+          Logger.error "Page entry at address ", false
+          Logger.put_number virtual_address.to_u32, 16
+          Logger.puts " is already used!\n"
+
+          panic("Page entry already in use during map_page!")
+        end
+
+        table_entry.value.reserved_space = true
+
+        flush
+
+        nil
+      when Memory::Error
+        return page_table
+      else
+        panic("Unknown return from get_or_create_page_table!")
+      end
     end
 
     def map_page(physical_address : UInt32, virtual_address : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
@@ -369,22 +430,42 @@ module Arch::Paging
       end
     end
 
-    def allocate(size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
+    private def allocate_pages(virtual_address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
+      if virtual_address % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidAddress
+      end
+
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
       end
 
-      Logger.debug "entries 0x", false
-      Logger.put_number @entries.address, 16
-      Logger.puts "\n"
+      page_index = 0_u32
 
+      error = Memory::PhysicalAllocator.allocate_non_contiguous(size) do |physical_address|
+        res = map_page(physical_address, virtual_address + page_index * Memory::PAGE_SIZE, permissions, user_accesible)
+
+        if !res.nil?
+          panic("allocate: Invalid argument sent to map_page")
+        end
+
+        page_index += 1
+      end
+
+      if !error.nil?
+        return error
+      end
+
+      Pointer(Void).new virtual_address.to_u64
+    end
+
+    private def find_contigous_space(size : UInt32) : UInt32 | Memory::Error
       target_address = nil
       tmp_size = size
 
       tmp_address = 0_u32
 
       while tmp_size > 0
-        if is_reserved(tmp_address)
+        if is_present(tmp_address) || is_reserved(tmp_address)
           tmp_size = size
           target_address = nil
         else
@@ -401,9 +482,70 @@ module Arch::Paging
         tmp_address += Memory::PAGE_SIZE
       end
 
-      if tmp_size != 0
+      if tmp_size != 0 || target_address.nil?
         return Memory::Error::OutOfMemory
       end
+
+      target_address
+    end
+
+    def reserve_space(size : UInt32) : UInt32 | Memory::Error
+      if size % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidSize
+      end
+
+      result_address = find_contigous_space(size)
+
+      case result_address
+      when UInt32
+        Logger.info "Found availaible virtual space at 0x", false
+        Logger.put_number result_address, 16
+        Logger.puts "\n"
+
+        page_count = size / Memory::PAGE_SIZE
+        i = 0
+        while i < page_count
+          target_address = result_address + i * Memory::PAGE_SIZE
+
+          result = reserve_page(target_address)
+
+          if !result.nil?
+            Logger.error "Cannot free: ", false
+            Logger.put_number result.to_u32, 16
+            Logger.puts "\n"
+            panic("unmap_page failed!")
+          end
+          i += 1
+        end
+
+        result_address
+      else
+        return Memory::Error::OutOfMemory
+      end
+    end
+
+    def allocate_for_reserved_space(virtual_address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
+      if size % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidSize
+      end
+
+      if virtual_address % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidAddress
+      end
+
+      if !is_reserved_range(virtual_address, size) || is_present_range(virtual_address, size)
+        return Memory::Error::InvalidAddress
+      end
+
+      allocate_pages(virtual_address, sizem permissions, user_accesible)
+    end
+
+    def allocate(size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
+      if size % Memory::PAGE_SIZE != 0
+        return Memory::Error::InvalidSize
+      end
+
+      target_address = find_contigous_space(size)
 
       case target_address
       when UInt32
@@ -411,22 +553,7 @@ module Arch::Paging
         Logger.put_number target_address, 16
         Logger.puts "\n"
 
-        page_index = 0_u32
-
-        error = Memory::PhysicalAllocator.allocate_non_contiguous(size) do |physical_address|
-          res = map_page(physical_address, target_address + page_index * Memory::PAGE_SIZE, permissions, user_accesible)
-
-          if !res.nil?
-            panic("allocate: Invalid argument sent to map_page")
-          end
-
-          page_index += 1
-        end
-
-        if !error.nil?
-          return error
-        end
-        Pointer(Void).new target_address.to_u64
+        allocate_pages(target_address, size, permissions, user_accesible)
       else
         return Memory::Error::OutOfMemory
       end
