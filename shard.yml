@@ -11,3 +11,8 @@ targets:
 crystal: 0.31.1
 
 license: MIT
+
+
+dependencies:
+  cryloc:
+    github: Thog/cryloc

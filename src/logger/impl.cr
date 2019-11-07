@@ -147,6 +147,20 @@ module Logger
     end
   end
 
+  def self.raw_puts(chars : UInt8*, chars_size : Int)
+    case @@type
+    when Type::Serial
+      @@serial_logger.raw_puts chars, chars_size
+    when Type::Screen
+      @@vga_logger.raw_puts chars, chars_size
+    when Type::All
+      @@serial_logger.raw_puts chars, chars_size
+      @@vga_logger.raw_puts chars, chars_size
+    else
+      # No operations
+    end
+  end
+
   def self.put_number(value : Int, base, padding = 0, padding_after = false)
     case @@type
     when Type::Serial

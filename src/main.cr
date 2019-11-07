@@ -80,3 +80,29 @@ allocation_result = kernel_virtual_allocator.value.free allocation_result.addres
 if allocation_result.nil?
   Logger.info "Freed virtual pages!"
 end
+
+class Testing
+  property some_integer : UInt32
+  property some_array : UInt8[0x100]
+
+  def initialize(@some_integer)
+    @some_array = StaticArray(UInt8, 0x100).new
+    @some_array[0] = 0x48
+    @some_array[1] = 0x2d
+    @some_array[2] = 0x48
+    @some_array[3] = 0x69
+    @some_array[4] = 0x69
+    @some_array[5] = 0x69
+    @some_array[6] = 0x00
+  end
+end
+
+some_testing = Testing.new 0x42_u32
+
+Logger.error "some_testing.some_integer: ", false
+Logger.put_number some_testing.some_integer, 16
+Logger.puts "\n"
+
+Logger.error "some_testing.some_array: ", false
+Logger.raw_puts some_testing.some_array.to_unsafe, 6
+Logger.puts "\n"
