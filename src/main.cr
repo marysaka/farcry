@@ -99,10 +99,10 @@ end
 
 some_testing = Testing.new 0x42_u32
 
-Logger.error "some_testing.some_integer: ", false
+Logger.info "some_testing.some_integer: ", false
 Logger.put_number some_testing.some_integer, 16
 Logger.puts "\n"
 
-Logger.error "some_testing.some_array: ", false
+Logger.info "some_testing.some_array: ", false
 Logger.raw_puts some_testing.some_array.to_unsafe, 6
 Logger.puts "\n"

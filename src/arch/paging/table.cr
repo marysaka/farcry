@@ -288,10 +288,10 @@ module Arch::Paging
     end
 
     private def is_present_range(address : UInt32, size : UInt32) : Bool
-      page_count = size / PAGE_SIZE
+      page_count = size / Memory::PAGE_SIZE
 
       page_count.times do |page_index|
-        if is_present(address + page_index * PAGE_SIZE)
+        if is_present(address + page_index * Memory::PAGE_SIZE)
           return true
         end
       end
@@ -300,10 +300,10 @@ module Arch::Paging
     end
 
     private def is_reserved_range(address : UInt32, size : UInt32) : Bool
-      page_count = size / PAGE_SIZE
+      page_count = size / Memory::PAGE_SIZE
 
       page_count.times do |page_index|
-        if is_reserved(address + page_index * PAGE_SIZE)
+        if is_reserved(address + page_index * Memory::PAGE_SIZE)
           return true
         end
       end
@@ -537,7 +537,7 @@ module Arch::Paging
         return Memory::Error::InvalidAddress
       end
 
-      allocate_pages(virtual_address, sizem permissions, user_accesible)
+      allocate_pages(virtual_address, size, permissions, user_accesible)
     end
 
     def allocate(size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error

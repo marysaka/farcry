@@ -61,3 +61,11 @@ struct SinglyLinkedList(T)
   property data
   property "next"
 end
+
+macro farcry_max(a, b)
+  {{a}} >= {{b}} ? {{a}} : {{b}}
+end
+
+macro farcry_align(size, align)
+  (({{size}} + {{align}} - 1) & ~({{align}} - 1))
+end
