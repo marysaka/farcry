@@ -1,17 +1,24 @@
 require "./types"
 
+# The physical memory allocator.
 module Memory::PhysicalAllocator
+  # The size of an element of the internal bitmap.
   BITMAP_ELEMENT_SIZE = sizeof(UInt32)
   @@bit_map = uninitialized StaticArray(UInt32, 0x8000)
 
+  # Represent the information related to usage of the physical allocator
   struct Status
+    # Count of free pages.
     property free_pages : UInt32
+    # Count of total pages.
     property total_pages : UInt32
 
     def initialize(@free_pages, @total_pages)
     end
   end
 
+  # :nodoc:
+  # This is exposed for some the kernel virtual allocator setup.
   def self.initialize
     # zeroed the bit_map
     memset(Pointer(UInt8).new(pointerof(@@bit_map).address), 0, sizeof(typeof(@@bit_map)).to_u32)
@@ -40,13 +47,8 @@ module Memory::PhysicalAllocator
     end
   end
 
-  def self.dump(limit = UInt32::MAX)
-    map_index = (limit >> 12) / (BITMAP_ELEMENT_SIZE * 8)
-    Logger.print_hex_with_address(Pointer(UInt8).new(pointerof(@@bit_map).address), map_index, 0x0)
-  end
-
   private def self.is_reserved(address : UInt32) : Bool
-    tmp = address >> 12
+    tmp = address >> Memory::PAGE_GRANUALITY
     map_index = tmp / (BITMAP_ELEMENT_SIZE * 8)
     bit_index = tmp % (BITMAP_ELEMENT_SIZE * 8)
 
@@ -54,11 +56,11 @@ module Memory::PhysicalAllocator
   end
 
   private def self.is_reserved_range(address : UInt32, size : UInt32) : Bool
-    tmp_address = address >> 12
+    tmp_address = address >> Memory::PAGE_GRANUALITY
     page_count = size / PAGE_SIZE
 
     page_count.times do |page_index|
-      if is_reserved((tmp_address + page_index) << 12)
+      if is_reserved((tmp_address + page_index) << Memory::PAGE_GRANUALITY)
         return true
       end
     end
@@ -66,6 +68,8 @@ module Memory::PhysicalAllocator
     false
   end
 
+  # :nodoc:
+  # This is exposed for some the kernel virtual allocator setup.
   def self.set_page_range_state(address : UInt32, size : UInt32, is_used : Bool) : Pointer(Void) | Error
     if address % PAGE_SIZE != 0
       return Error::InvalidAddress
@@ -82,7 +86,7 @@ module Memory::PhysicalAllocator
       return Error::StateMismatch
     end
 
-    base_page_index = address >> 12
+    base_page_index = address >> Memory::PAGE_GRANUALITY
     page_count = size / PAGE_SIZE
 
     page_count.times do |page_index|
@@ -100,6 +104,7 @@ module Memory::PhysicalAllocator
     Pointer(Void).new address.to_u64
   end
 
+  # Get the current Status of the physical memory allocator.
   def self.get_status : Status
     address = 0_u32
 
@@ -119,6 +124,13 @@ module Memory::PhysicalAllocator
     Status.new(free_pages, total_pages)
   end
 
+  # Allocate a given amount of physical memory contiguously.
+  #
+  # ## Preconditions:
+  # - `size` must be aligned to `Memory::PAGE_SIZE`.
+  #
+  # ## Postconditions:
+  # - The return contains an address to the physical memory allocated.
   def self.allocate(size : UInt32) : Pointer(Void) | Error
     if size % PAGE_SIZE != 0
       return Error::InvalidSize
@@ -162,6 +174,13 @@ module Memory::PhysicalAllocator
     end
   end
 
+  # Allocate a given amount of physical memory contiguous by yielding physical addresses.
+  #
+  # ## Preconditions:
+  # - `size` must be aligned to `Memory::PAGE_SIZE`.
+  #
+  # ## Postconditions:
+  # - The yielded physical addresses are **allocated**.
   def self.allocate_non_contiguous(size : UInt32) : Nil | Error
     page_count = size / PAGE_SIZE
 
@@ -211,6 +230,15 @@ module Memory::PhysicalAllocator
     end
   end
 
+  # Free a physical range at the given physical address with a given size.
+  #
+  # ## Preconditions:
+  # - `address` must be aligned to `Memory::PAGE_SIZE`.
+  # - `size` must be aligned to `Memory::PAGE_SIZE`.
+  # - The physical range **must** be **allocated**.
+  #
+  # ## Postconditions:
+  # - The physical range is **free**.
   def self.free(address : UInt32, size : UInt32) : Nil | Error
     result = set_page_range_state(address, size, false)
 

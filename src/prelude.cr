@@ -8,6 +8,30 @@ require "nil"
 require "comparable"
 require "enum"
 require "proc"
+
+{% if flag?(:bits64) %}
+  lib LibC
+    alias SizeT = UInt64
+    alias SSizeT = Int64
+    alias ULong = UInt64
+  end
+{% else %}
+  lib LibC
+    alias SizeT = UInt32
+    alias SSizeT = Int32
+
+    alias ULong = UInt64
+  end
+{% end %}
+
+lib LibC
+  fun malloc(size : SizeT) : Void*
+  fun free(ptr : Void*)
+  fun realloc(ptr : Void*, size : SizeT) : Void*
+end
+
+require "macros"
+require "gc"
 require "./i386_utils"
 require "./logger/impl"
 

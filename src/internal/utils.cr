@@ -62,6 +62,20 @@ struct SinglyLinkedList(T)
   property "next"
 end
 
+macro define_bit(name, bit)
+  def {{name}}?
+    @value.bit({{bit}}) == 1
+  end
+
+  def {{name}}=(activate : Bool)
+    if activate
+      @value |= 1_u64 << {{bit}}
+    else
+      @value &= ~(1_u64 << {{bit}})
+    end
+  end
+end
+
 macro farcry_max(a, b)
   {{a}} >= {{b}} ? {{a}} : {{b}}
 end

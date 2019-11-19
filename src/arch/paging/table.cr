@@ -1,20 +1,12 @@
 require "../../memory/**"
 
-macro define_bit(name, bit)
-  def {{name}}?
-    @value.bit({{bit}}) == 1
-  end
-
-  def {{name}}=(activate : Bool)
-    if activate
-      @value |= 1_u64 << {{bit}}
-    else
-      @value &= ~(1_u64 << {{bit}})
-    end
-  end
-end
-
 module Arch::Paging
+  # The granuality of a large page.
+  LARGE_PAGE_GRANUALITY = 22_u32
+
+  # The size of a large page.
+  LARGE_PAGE_SIZE = 1_u32 << LARGE_PAGE_GRANUALITY
+
   struct PageDirectoryEntry
     @value : UInt32 = 0
 
@@ -32,12 +24,12 @@ module Arch::Paging
     end
 
     def address
-      @value & ~((1 << 12) - 1)
+      @value & ~((1 << Memory::PAGE_GRANUALITY) - 1)
     end
 
     def get_table_entry(address : UInt32, is_paging_on : Bool, must_be_present = true) : Pointer(PageTableEntry) | Nil
-      page_index = (address >> 12) & 0x3FF
-      table_index = (address >> 22) & 0x3FF
+      page_index = (address >> Memory::PAGE_GRANUALITY) & 0x3FF
+      table_index = (address >> LARGE_PAGE_GRANUALITY) & 0x3FF
 
       if is_paging_on
         target_page_entry_address = (PageDirectory::PAGE_DIRECTORY_BASE + table_index * Memory::PAGE_SIZE).to_u64
@@ -53,12 +45,9 @@ module Arch::Paging
       end
       nil
     end
-
-    def dump
-      Logger.print_bin(pointerof(@value), 0x4)
-    end
   end
 
+  # Define a page table entry.
   struct PageTableEntry
     @value : UInt32 = 0
 
@@ -72,28 +61,25 @@ module Arch::Paging
     # Custom
     define_bit reserved_space, 9
 
+    # Set the address stored in the page table entry.
     def address=(address : UInt32)
       @value = address | @value
     end
 
+    # Get the address stored in the page table entry.
     def address
-      @value >> 12 << 12
-    end
-
-    def dump
-      ptr = pointerof(@value)
-      Logger.error "PageTableEntry {\naddress: 0x", false
-      Logger.put_number ptr.address, 16, 8
-      Logger.puts ", dump: 0x"
-      Logger.put_number @value, 16, 8
-      Logger.puts "\n}\n"
+      @value >> Memory::PAGE_GRANUALITY << Memory::PAGE_GRANUALITY
     end
   end
 
+  # Structure holding the page directory.
   struct PageDirectory
-    # hardcoded value to do a recursive mapping
+    # The page directory base when running with paging on (recursive mapping).
     PAGE_DIRECTORY_BASE = 0xffc00000_u32
+
+    # The page directory page coresponding to `@entries` when running with paging on (recursive mapping).
     PAGE_DIRECTORY_PAGE = 0xfffff000_u32
+
     @entries = Pointer(PageDirectoryEntry).new 0
     @entries_physical = Pointer(PageDirectoryEntry).new 0
 
@@ -134,13 +120,14 @@ module Arch::Paging
       @entries.address != @entries_physical.address
     end
 
+    # Enable paging.
     def enable_paging
       @entries = Pointer(PageDirectoryEntry).new PAGE_DIRECTORY_PAGE.to_u64
       ::enable_paging(@entries_physical.as(Void*))
     end
 
     private def get_page_table(address : UInt32, must_be_present = true) : Pointer(PageDirectoryEntry) | Nil
-      page_directory_index = (address >> 22) & 0x3FF
+      page_directory_index = (address >> LARGE_PAGE_GRANUALITY) & 0x3FF
 
       page_table = @entries
       page_table += page_directory_index
@@ -174,7 +161,7 @@ module Arch::Paging
 
           # now the page should be mapped in the recursive mapping!
           # So we can just get the first entry and clean the whole table again and flush the tlb once more to be sure we don't have garbage mapping.
-          page_table_first_entry = page_table.value.get_table_entry address >> 22 << 22, is_paging_on, false
+          page_table_first_entry = page_table.value.get_table_entry address >> LARGE_PAGE_GRANUALITY << LARGE_PAGE_GRANUALITY, is_paging_on, false
 
           if page_table_first_entry.nil?
             panic("page_table_first_entry is nil (impossible)")
@@ -207,7 +194,7 @@ module Arch::Paging
 
       if page_table.nil?
         # Logger.debug "Creating page table at address 0x", false
-        # Logger.put_number address.to_u32 >> 22 << 22, 16
+        # Logger.put_number address.to_u32 >> LARGE_PAGE_GRANUALITY << LARGE_PAGE_GRANUALITY, 16
         # Logger.puts "\n"
 
         page_table = create_page_table(address)
@@ -216,6 +203,15 @@ module Arch::Paging
       page_table
     end
 
+    # Identity map the given physical range to the same virtual range.
+    #
+    # ## Preconditions:
+    # - `address` must be aligned to `Memory::PAGE_SIZE`.
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    # - The virtual range **must** be **freed**.
+    #
+    # ## Postconditions:
+    # - The virtual range is **allocated**.
     def identity_map_pages(address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool, physcial_frames_already_allocated = false) : Nil | Memory::Error
       if address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
@@ -247,6 +243,15 @@ module Arch::Paging
       nil
     end
 
+    # Map the given physical range to the given virtual range.
+    #
+    # ## Preconditions:
+    # - `address` must be aligned to `Memory::PAGE_SIZE`.
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    # - The virtual range **must** be **freed**.
+    #
+    # ## Postconditions:
+    # - The virtual range is **allocated**.
     def map_page_ranges(physical_address : UInt32, virtual_address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
       if physical_address % Memory::PAGE_SIZE != 0 || virtual_address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
@@ -342,7 +347,7 @@ module Arch::Paging
       end
     end
 
-    def map_page(physical_address : UInt32, virtual_address : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
+    private def map_page(physical_address : UInt32, virtual_address : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Nil | Memory::Error
       if physical_address % Memory::PAGE_SIZE != 0 || virtual_address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
       end
@@ -384,6 +389,15 @@ module Arch::Paging
       end
     end
 
+    # Unmap the given virtual page.
+    #
+    # ## Preconditions:
+    # - `address` must be aligned to `Memory::PAGE_SIZE`.
+    # - The virtual page **must** be **allocated**.
+    #
+    # ## Postconditions:
+    # - The virtual page is **freed**.
+    # - The associated physical page is **freed** if `free_physical_frame` is true.
     def unmap_page(virtual_address : UInt32, free_physical_frame = true) : Nil | Memory::Error
       if virtual_address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
@@ -489,6 +503,13 @@ module Arch::Paging
       target_address
     end
 
+    # Reserve a given amount of virtual memory contiguously.
+    #
+    # ## Preconditions:
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    #
+    # ## Postconditions:
+    # - The return contains an address to the virtual memory range that is **reserved**.
     def reserve_space(size : UInt32) : UInt32 | Memory::Error
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
@@ -524,6 +545,14 @@ module Arch::Paging
       end
     end
 
+    # Allocate a given amount of virtual memory contiguously a reserved virtual memory range.
+    #
+    # ## Preconditions:
+    # - `virtual_address` must be aligned to `Memory::PAGE_SIZE`.
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    #
+    # ## Postconditions:
+    # - The return contains a pointer to `virtual_address` that is now **allocated**.
     def allocate_for_reserved_space(virtual_address : UInt32, size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
@@ -540,6 +569,13 @@ module Arch::Paging
       allocate_pages(virtual_address, size, permissions, user_accesible)
     end
 
+    # Allocate a given amount of virtual memory contiguously.
+    #
+    # ## Preconditions:
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    #
+    # ## Postconditions:
+    # - The return contains an address to the virtual memory range that is **allocated**.
     def allocate(size : UInt32, permissions : Memory::Permissions, user_accesible : Bool) : Pointer(Void) | Memory::Error
       if size % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidSize
@@ -559,6 +595,15 @@ module Arch::Paging
       end
     end
 
+    # Free a virtual range at the given virtual address with a given size.
+    #
+    # ## Preconditions:
+    # - `address` must be aligned to `Memory::PAGE_SIZE`.
+    # - `size` must be aligned to `Memory::PAGE_SIZE`.
+    # - The virtual range **must** be **allocated**.
+    #
+    # ## Postconditions:
+    # - The virtual range is **freed**.
     def free(address : UInt32, size : UInt32) : Nil | Memory::Error
       if address % Memory::PAGE_SIZE != 0
         return Memory::Error::InvalidAddress
@@ -585,6 +630,7 @@ module Arch::Paging
       end
     end
 
+    # Flush the TLB of the MMU
     def flush
       flush_tlb
     end

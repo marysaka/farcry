@@ -1377,6 +1377,19 @@ struct Pointer(T)
   # ptr.hash # => 1234
   # ```
   def_hash address
+
+  # Returns a pointer whose memory address is zero. This doesn't allocate memory.
+  #
+  # When calling a C function you can also pass `nil` instead of constructing a
+  # null pointer with this method.
+  #
+  # ```
+  # ptr = Pointer(Int32).null
+  # ptr.address # => 0
+  # ```
+  def self.null
+    new 0_u64
+  end
 end
 
 struct Int
@@ -1623,4 +1636,22 @@ class Reference
   def hash(hasher)
     hasher.reference(self)
   end
+end
+
+class Exception
+  getter message : String?
+  getter cause : Exception?
+
+  def initialize(@message : String? = nil, @cause : Exception? = nil)
+  end
+end
+
+class ArgumentError < Exception
+  def initialize(message = "Argument error")
+    super(message)
+  end
+end
+
+def raise(exception : Exception) : NoReturn
+  panic("Exception raised")
 end

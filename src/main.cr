@@ -2,7 +2,7 @@ require "./arch/gdt"
 require "./arch/paging/**"
 require "./memory"
 
-Logger.initialize(Logger::Type::Serial)
+Logger.initialize(Logger::Type::All)
 Logger.info "Welcome to FarCry"
 
 Logger.debug "Setup GDT"
@@ -37,72 +37,45 @@ Logger.info "MMU ON"
 
 kernel_virtual_allocator = Memory.get_kernel_virtual_allocator
 
-allocation_result = kernel_virtual_allocator.value.allocate 0x10000000, Memory::Permissions::Read | Memory::Permissions::Write, false
-case allocation_result
-when Pointer(Void)
-  Logger.info "Allocated a virtual pages at 0x", false
-  Logger.put_number allocation_result.address, 16
-  Logger.puts "\n"
-
-  ptr_test = allocation_result.as(UInt8*)
-  ptr_test.value = 42
-else
-  Logger.error "Cannot allocate: ", false
-  Logger.put_number allocation_result.to_u32, 16
-  Logger.puts "\n"
-  panic("Cannot allocate virtual page in the kernel")
-end
-
-allocation_result = kernel_virtual_allocator.value.free allocation_result.address.to_u32, 0x10000000
-
-if allocation_result.nil?
-  Logger.info "Freed virtual pages!"
-end
-
-allocation_result = kernel_virtual_allocator.value.allocate 0x10000000, Memory::Permissions::Read | Memory::Permissions::Write, false
-case allocation_result
-when Pointer(Void)
-  Logger.info "Allocated a virtual pages at 0x", false
-  Logger.put_number allocation_result.address, 16
-  Logger.puts "\n"
-
-  ptr_test = allocation_result.as(UInt8*)
-  ptr_test.value = 42
-else
-  Logger.error "Cannot allocate: ", false
-  Logger.put_number allocation_result.to_u32, 16
-  Logger.puts "\n"
-  panic("Cannot allocate virtual page in the kernel")
-end
-
-allocation_result = kernel_virtual_allocator.value.free allocation_result.address.to_u32, 0x10000000
-
-if allocation_result.nil?
-  Logger.info "Freed virtual pages!"
-end
-
 class Testing
-  property some_integer : UInt32
-  property some_array : UInt8[0x100]
+  property some_integer : UInt32 = 0
+  property some_array : UInt8[0x100] = StaticArray(UInt8, 0x100).new
 
-  def initialize(@some_integer)
-    @some_array = StaticArray(UInt8, 0x100).new
-    @some_array[0] = 0x48
-    @some_array[1] = 0x2d
-    @some_array[2] = 0x48
-    @some_array[3] = 0x69
-    @some_array[4] = 0x69
-    @some_array[5] = 0x69
-    @some_array[6] = 0x00
+  def finalize
+    Logger.puts "BYYYYE"
   end
 end
 
-some_testing = Testing.new 0x42_u32
+some_testing = Testing.new
+some_testing.some_integer = 0x42
+some_testing.some_array[0] = 0x48
+some_testing.some_array[1] = 0x69
+some_testing.some_array[2] = 0x69
+some_testing.some_array[3] = 0x69
+some_testing.some_array[4] = 0x69
+some_testing.some_array[5] = 0x00
 
-Logger.info "some_testing.some_integer: ", false
+Logger.info "some_testing.some_integer: 0x", false
 Logger.put_number some_testing.some_integer, 16
 Logger.puts "\n"
 
 Logger.info "some_testing.some_array: ", false
-Logger.raw_puts some_testing.some_array.to_unsafe, 6
+Logger.raw_puts some_testing.some_array.to_unsafe, 5
+Logger.puts "\n"
+
+some_testing = Testing.new
+some_testing.some_integer = 0x42
+some_testing.some_array[0] = 0x48
+some_testing.some_array[1] = 0x69
+some_testing.some_array[2] = 0x69
+some_testing.some_array[3] = 0x69
+some_testing.some_array[4] = 0x69
+some_testing.some_array[5] = 0x00
+
+Logger.info "some_testing.some_integer: 0x", false
+Logger.put_number some_testing.some_integer, 16
+Logger.puts "\n"
+
+Logger.info "some_testing.some_array: ", false
+Logger.raw_puts some_testing.some_array.to_unsafe, 5
 Logger.puts "\n"
