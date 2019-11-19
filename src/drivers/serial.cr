@@ -1,9 +1,11 @@
 # Simple UART implementation
 struct Serial < LoggerDriver
+  # The COM1 port
   COM1 = 0x3F8_u16
 
   @port : UInt16
 
+  # Create a new Serial instance on the given `port`.
   def initialize(@port = COM1)
     # Disable all interrupts
     outb(@port + 1, 0x00)
@@ -21,14 +23,18 @@ struct Serial < LoggerDriver
     outb(@port + 4, 0x0B)
   end
 
+  # Check if all the data was sent.
   def transport_empty? : Bool
     (inb(@port + 5) & 0x20) != 0
   end
 
+  # Check if any data was received.
   def received_data? : Bool
     inb(@port + 5) & 1
   end
 
+  # Get a charater from the serial.
+  # NOTE: If no character is availaible, this will wait until data is received.
   def getc : UInt8
     unless received_data?
     end

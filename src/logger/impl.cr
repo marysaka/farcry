@@ -1,7 +1,11 @@
 abstract struct LoggerDriver
+  # Put a given char `c` in the serial transport
   abstract def putc(c : UInt8)
+
+  # Change the current color to a given `color`.
   abstract def set_color(color : Logger::Color)
 
+  # Print a given string.
   def puts(str : String)
     i = 0
     chars = str.to_unsafe
@@ -10,6 +14,7 @@ abstract struct LoggerDriver
     raw_puts(chars, chars_size)
   end
 
+  # Print a given raw char array with a given size.
   def raw_puts(chars : UInt8*, chars_size : Int)
     i = 0
 
@@ -19,6 +24,7 @@ abstract struct LoggerDriver
     end
   end
 
+  # Util to print a number on the logger.
   def put_number(value : Int, base, padding = 0, padding_after = false)
     value.internal_to_s(base, false) do |ptr, count|
       if value == 0
@@ -51,20 +57,31 @@ require "../drivers/serial"
 require "../drivers/vga_text_mode"
 
 module Logger
+  # Define the type of the logger to use.
   enum Type
-    None   = 0
+    # All logs goes to the void.
+    None = 0
+    # All logs goes to the serial.
     Serial
+    # All logs goes to the screen.
     Screen
+    # All logs goes to all availaibles logger interfaces.
     All
   end
 
+  # Definition of the different levels availaible on thelogger.
   enum Level
+    # A Debug log.
     Debug
+    # A Warning log.
     Warning
+    # An Error log.
     Error
+    # An Info log.
     Info
   end
 
+  # Definition of the colors availaible on the logger.
   enum Color : UInt8
     Black         = 0
     Blue
@@ -90,6 +107,7 @@ module Logger
   @@serial_logger = uninitialized Serial
   @@vga_logger = uninitialized VgaTextMode
 
+  # Initialize the logger with the given `Type`.
   def self.initialize(type : Type)
     @@serial_logger = Serial.new
     @@vga_logger = VgaTextMode.new
@@ -98,27 +116,32 @@ module Logger
     set_color(Color::White)
   end
 
+  # :nodoc:
   def self.serial_logger
     @@serial_logger
   end
 
+  # Log a given `str` with `Level::Debug` level.
   def self.debug(str : String, line_break : Bool = true)
     message(Level::Debug, str, line_break)
   end
 
+  # Log a given `str` with `Level::Warning` level.
   def self.warn(str : String, line_break : Bool = true)
     message(Level::Warning, str, line_break)
   end
 
+  # Log a given `str` with `Level::Error` level.
   def self.error(str : String, line_break : Bool = true)
     message(Level::Error, str, line_break)
   end
 
+  # Log a given `str` with `Level::Info` level.
   def self.info(str : String, line_break : Bool = true)
     message(Level::Info, str, line_break)
   end
 
-  def self.prefix(level : Level) : String
+  private def self.prefix(level : Level) : String
     case level
     when Level::Debug
       "debug"
@@ -133,6 +156,7 @@ module Logger
     end
   end
 
+  # Print a given string.
   def self.puts(str : String)
     case @@type
     when Type::Serial
@@ -147,6 +171,7 @@ module Logger
     end
   end
 
+  # Print a given raw char array with a given size.
   def self.raw_puts(chars : UInt8*, chars_size : Int)
     case @@type
     when Type::Serial
@@ -161,6 +186,7 @@ module Logger
     end
   end
 
+  # Util to print a number on the logger.
   def self.put_number(value : Int, base, padding = 0, padding_after = false)
     case @@type
     when Type::Serial
@@ -175,10 +201,12 @@ module Logger
     end
   end
 
+  # Print the given range in hexadecimal following xdd output.
   def self.print_hex(pointer : UInt8*, size : Int)
     print_hex_with_address(pointer, size, pointer.address)
   end
 
+  # Print the given range in hexadecimal following xdd output with a custom `display_address`.
   def self.print_hex_with_address(pointer : UInt8*, size : Int, display_address : UInt64)
     line_content = uninitialized UInt8[0x10]
     last_content_index = 0
@@ -225,10 +253,12 @@ module Logger
     end
   end
 
+  # Print the given range in binary following xdd output.
   def self.print_bin(pointer : UInt8*, size : Int)
     print_bin_with_address(pointer, size, pointer.address)
   end
 
+  # Print the given range in binary following xdd output with a custom `display_address`.
   def self.print_bin_with_address(pointer : UInt8*, size : Int, display_address : UInt64)
     line_content = uninitialized UInt8[4]
     last_content_index = 0
@@ -312,6 +342,7 @@ module Logger
     end
   end
 
+  # Log a given `str` with the given `level`.
   def self.message(level : Level, str : String, line_break : Bool = true)
     puts "["
     set_color level

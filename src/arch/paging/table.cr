@@ -19,14 +19,17 @@ module Arch::Paging
     define_bit large_page, 7
     define_bit global, 8
 
+    # Set the address stored in the page table entry.
     def address=(address : UInt32)
       @value = address | @value
     end
 
+    # Get the address stored in the page table entry.
     def address
       @value & ~((1 << Memory::PAGE_GRANUALITY) - 1)
     end
 
+    # Get the page table at the given address.
     def get_table_entry(address : UInt32, is_paging_on : Bool, must_be_present = true) : Pointer(PageTableEntry) | Nil
       page_index = (address >> Memory::PAGE_GRANUALITY) & 0x3FF
       table_index = (address >> LARGE_PAGE_GRANUALITY) & 0x3FF
