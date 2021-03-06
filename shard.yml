@@ -2,7 +2,7 @@ name: farcry
 version: 0.1.0
 
 authors:
-  - Thomas Guillemard <me@thog.eu>
+  - Thog <me@thog.eu>
 
 targets:
   farcry:
